@@ -463,7 +463,18 @@ def single_run(config):
     rng = jax.random.PRNGKey(config["SEED"])
     rngs = jax.random.split(rng, config["NUM_SEEDS"])
     train_jit = jax.jit(make_train(config))
-    out = jax.vmap(train_jit)(rngs)
+    # out = jax.vmap(train_jit)(rngs)
+    # vmapを使わず、リスト内包表記やループで実行して結果をスタックする
+    results = []
+    for i in range(len(rngs)):
+        print(f"Running seed {i+1}/{len(rngs)}...")
+        res = train_jit(rngs[i])
+        # 完全に計算が終わるのを待つ（JAXの非同期実行による詰まりを防ぐ）
+        res = jax.block_until_ready(res)
+        results.append(res)
+
+    # 必要に応じて、元のvmapと同じ形式にスタックする
+    out = jax.tree.map(lambda *xs: jnp.stack(xs), *results)
 
     print("** Saving Results **")
     filename = f'{config["ENV_NAME"]}_seed{config["SEED"]}_reward_{config["REWARD"]}'
