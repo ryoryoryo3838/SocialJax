@@ -13,7 +13,7 @@ from socialjax.wrappers.baselines import LogWrapper, MAPPOWorldStateWrapper
 
 from components.algorithms.networks import Actor, Critic, EncoderConfig
 from components.training.checkpoint import save_checkpoint
-from components.training.logging import finalize_info_stats, init_wandb, update_info_stats
+from components.training.logging import init_wandb
 from components.training.ppo import PPOBatch, compute_gae, update_actor, update_value
 from components.training.utils import (
     build_world_state,
@@ -54,7 +54,10 @@ def make_train(config: Dict):
     num_agents = env.num_agents
     parameter_sharing = bool(config.get("PARAMETER_SHARING", True))
 
-    num_actors = num_envs * num_agents
+    if parameter_sharing:
+        num_actors = num_envs * num_agents
+    else:
+        num_actors = num_envs
     num_updates = (
         int(config["TOTAL_TIMESTEPS"]) // num_steps // num_envs
     )
@@ -116,14 +119,17 @@ def make_train(config: Dict):
                 tx=actor_tx,
             )
         else:
-            actor_state = [
-                TrainState.create(
-                    apply_fn=actor_net.apply,
-                    params=actor_params,
-                    tx=actor_tx,
-                )
-                for _ in range(num_agents)
-            ]
+            actor_params = jax.tree_util.tree_map(
+                lambda x: jnp.stack([x] * num_agents, axis=0), actor_params
+            )
+            actor_state = TrainState.create(
+                apply_fn=actor_net.apply,
+                params=actor_params,
+                tx=actor_tx,
+            )
+            actor_state = actor_state.replace(
+                step=jnp.zeros((num_agents,), dtype=jnp.int32)
+            )
 
         critic_state = TrainState.create(
             apply_fn=critic_net.apply,
@@ -136,147 +142,208 @@ def make_train(config: Dict):
         obs, env_state = jax.vmap(env.reset, in_axes=(0,))(reset_keys)
 
         if not parameter_sharing:
-            # Independent policy path stays in Python for now.
-            for update_step in range(num_updates):
-                obs_buf = []
-                actions_buf = []
-                logp_buf = []
-                values_buf = []
-                rewards_buf = []
-                dones_buf = []
-                world_buf = []
-                info_stats: Dict[str, Dict[str, float]] = {}
+            # Independent policy path fully in JAX, including per-agent updates.
+            def _log_callback(metrics):
+                if log_enabled:
+                    wandb.log(metrics, step=int(metrics["env_step"]))
 
-                for _ in range(num_steps):
-                    world_state = build_world_state(obs)
-                    world_repeat = jnp.repeat(world_state[:, None, ...], num_agents, axis=1)
-                    world_flat = flatten_obs(world_repeat)
+            def _save_callback(step, actor_params, critic_params, do_save):
+                if not ckpt_dir or ckpt_every <= 0 or not do_save:
+                    return
+                actor_params_list = [
+                    jax.tree_util.tree_map(lambda x, i=i: x[i], actor_params)
+                    for i in range(num_agents)
+                ]
+                save_checkpoint(
+                    ckpt_dir,
+                    int(step),
+                    {"actor_params": actor_params_list, "critic_params": critic_params},
+                    keep=ckpt_keep,
+                )
 
-                    obs_batch = [obs[:, i] for i in range(num_agents)]
-                    env_actions = []
-                    action = []
-                    logp = []
-                    for i in range(num_agents):
-                        rng, action_rng = jax.random.split(rng)
-                        dist = actor_state[i].apply_fn(actor_state[i].params, obs_batch[i])
-                        action_i = dist.sample(seed=action_rng)
-                        env_actions.append(action_i)
-                        action.append(action_i)
-                        logp.append(dist.log_prob(action_i))
-                    action = jnp.stack(action, axis=0)
-                    logp = jnp.stack(logp, axis=0)
+            def _env_step(carry, _):
+                actor_state, critic_state, env_state, last_obs, rng = carry
+                rng, action_rng, step_rng = jax.random.split(rng, 3)
+                obs_agents = jnp.swapaxes(last_obs, 0, 1)
+                agent_rngs = jax.random.split(action_rng, num_agents)
+                dist = jax.vmap(actor_state.apply_fn, in_axes=(0, 0))(
+                    actor_state.params, obs_agents
+                )
+                action = jax.vmap(lambda d, k: d.sample(seed=k))(dist, agent_rngs)
+                logp = dist.log_prob(action)
+                env_actions = list(action)
 
-                    value = critic_state.apply_fn(critic_state.params, world_flat)
+                world_state = build_world_state(last_obs)
+                world_repeat = jnp.repeat(world_state[:, None, ...], num_agents, axis=1)
+                world_flat = flatten_obs(world_repeat)
+                value = critic_state.apply_fn(critic_state.params, world_flat)
+                value_agents = value.reshape((num_agents, num_envs))
 
-                    rng, step_rng = jax.random.split(rng)
-                    step_keys = jax.random.split(step_rng, num_envs)
-                    obs, env_state, reward, done, info = jax.vmap(
-                        env.step, in_axes=(0, 0, 0)
-                    )(step_keys, env_state, env_actions)
+                step_keys = jax.random.split(step_rng, num_envs)
+                obs, env_state, reward, done, info = jax.vmap(
+                    env.step, in_axes=(0, 0, 0)
+                )(step_keys, env_state, env_actions)
 
-                    done_array = _done_dict_to_array(done, env.agents)
-                    value_agents = value.reshape((num_agents, num_envs)).transpose((1, 0))
-                    if log_enabled:
-                        update_info_stats(info_stats, info)
+                done_array = _done_dict_to_array(done, env.agents)
+                info_mean = jax.tree_util.tree_map(lambda x: jnp.mean(x), info)
 
-                    obs_buf.append(jnp.stack(obs_batch, axis=0))
-                    actions_buf.append(action)
-                    logp_buf.append(logp)
-                    values_buf.append(value_agents.T)
-                    rewards_buf.append(reward.T)
-                    dones_buf.append(done_array.T)
-                    world_buf.append(world_flat)
+                transition = (
+                    obs_agents,
+                    action,
+                    logp,
+                    value_agents,
+                    reward.T,
+                    done_array.T,
+                    world_flat,
+                    info_mean,
+                )
+                return (actor_state, critic_state, env_state, obs, rng), transition
 
-                obs_arr = jnp.stack(obs_buf)
-                actions_arr = jnp.stack(actions_buf)
-                logp_arr = jnp.stack(logp_buf)
-                values_arr = jnp.stack(values_buf)
-                rewards_arr = jnp.stack(rewards_buf)
-                dones_arr = jnp.stack(dones_buf)
-                world_arr = jnp.stack(world_buf)
+            def _update_step(carry, _):
+                actor_state, critic_state, env_state, last_obs, rng, update_step = carry
+                (actor_state, critic_state, env_state, last_obs, rng), traj = jax.lax.scan(
+                    _env_step,
+                    (actor_state, critic_state, env_state, last_obs, rng),
+                    None,
+                    length=num_steps,
+                )
+                (
+                    obs_arr,
+                    actions_arr,
+                    logp_arr,
+                    values_arr,
+                    rewards_arr,
+                    dones_arr,
+                    world_arr,
+                    info_means,
+                ) = traj
 
-                last_world = build_world_state(obs)
+                last_world = build_world_state(last_obs)
                 last_world_repeat = jnp.repeat(last_world[:, None, ...], num_agents, axis=1)
                 last_world_flat = flatten_obs(last_world_repeat)
                 last_value = critic_state.apply_fn(critic_state.params, last_world_flat)
                 last_value = last_value.reshape((num_agents, num_envs))
 
-                advantages_all, returns_all = compute_gae(
-                    rewards_arr.reshape((num_steps, -1)),
-                    values_arr.reshape((num_steps, -1)),
-                    dones_arr.reshape((num_steps, -1)),
-                    last_value.reshape((-1,)),
+                rewards_agents = jnp.swapaxes(rewards_arr, 0, 1)
+                values_agents = jnp.swapaxes(values_arr, 0, 1)
+                dones_agents = jnp.swapaxes(dones_arr, 0, 1)
+
+                advantages, returns = jax.vmap(
+                    compute_gae, in_axes=(0, 0, 0, 0, None, None)
+                )(
+                    rewards_agents,
+                    values_agents,
+                    dones_agents,
+                    last_value,
                     float(config["GAMMA"]),
                     float(config["GAE_LAMBDA"]),
                 )
 
-                for agent_idx in range(num_agents):
-                    agent_obs = obs_arr[:, agent_idx]
-                    agent_actions = actions_arr[:, agent_idx]
-                    agent_logp = logp_arr[:, agent_idx]
-                    agent_values = values_arr[:, agent_idx]
-                    agent_rewards = rewards_arr[:, agent_idx]
-                    agent_dones = dones_arr[:, agent_idx]
+                obs_agents = jnp.swapaxes(obs_arr, 0, 1)
+                actions_agents = jnp.swapaxes(actions_arr, 0, 1)
+                logp_agents = jnp.swapaxes(logp_arr, 0, 1)
 
-                    advantages = advantages_all.reshape((num_steps, num_agents, num_envs))[:, agent_idx]
-                    returns = returns_all.reshape((num_steps, num_agents, num_envs))[:, agent_idx]
+                batch = PPOBatch(
+                    obs=obs_agents.reshape((num_agents, -1, *obs_agents.shape[3:])),
+                    actions=actions_agents.reshape((num_agents, -1)),
+                    old_log_probs=logp_agents.reshape((num_agents, -1)),
+                    advantages=advantages.reshape((num_agents, -1)),
+                    returns=returns.reshape((num_agents, -1)),
+                )
 
-                    batch = PPOBatch(
-                        obs=agent_obs.reshape((-1, *agent_obs.shape[2:])),
-                        actions=agent_actions.reshape((-1,)),
-                        old_log_probs=agent_logp.reshape((-1,)),
-                        advantages=advantages.reshape((-1,)),
-                        returns=returns.reshape((-1,)),
+                batch_size = batch.actions.shape[1]
+                num_minibatches = int(config["NUM_MINIBATCHES"])
+
+                def _gather(x, idx):
+                    return jax.vmap(lambda x_i, idx_i: x_i[idx_i])(x, idx)
+
+                def _update_epoch(carry, _):
+                    actor_state, rng = carry
+                    rng, perm_rng = jax.random.split(rng)
+                    agent_rngs = jax.random.split(perm_rng, num_agents)
+                    perm = jax.vmap(
+                        lambda key: jax.random.permutation(key, batch_size)
+                    )(agent_rngs)
+                    perm = perm.reshape((num_agents, num_minibatches, minibatch_size))
+
+                    def _minibatch(state, idx):
+                        mb_idx = perm[:, idx]
+                        mbatch = PPOBatch(
+                            obs=_gather(batch.obs, mb_idx),
+                            actions=_gather(batch.actions, mb_idx),
+                            old_log_probs=_gather(batch.old_log_probs, mb_idx),
+                            advantages=_gather(batch.advantages, mb_idx),
+                            returns=_gather(batch.returns, mb_idx),
+                        )
+                        state, _ = jax.vmap(
+                            update_actor, in_axes=(0, 0, None, None)
+                        )(
+                            state,
+                            mbatch,
+                            float(config["CLIP_EPS"]),
+                            float(config["ENT_COEF"]),
+                        )
+                        return state, None
+
+                    state, _ = jax.lax.scan(
+                        _minibatch,
+                        actor_state,
+                        jnp.arange(num_minibatches),
                     )
+                    return (state, rng), None
 
-                    rng, shuffle_rng = jax.random.split(rng)
-                    indices = jax.random.permutation(shuffle_rng, batch.actions.shape[0])
-
-                    for _ in range(int(config["UPDATE_EPOCHS"])):
-                        for start in range(0, indices.shape[0], minibatch_size):
-                            mb_idx = indices[start:start + minibatch_size]
-                            mbatch = PPOBatch(
-                                obs=batch.obs[mb_idx],
-                                actions=batch.actions[mb_idx],
-                                old_log_probs=batch.old_log_probs[mb_idx],
-                                advantages=batch.advantages[mb_idx],
-                                returns=batch.returns[mb_idx],
-                            )
-                            new_state, _ = update_actor(
-                                actor_state[agent_idx],
-                                mbatch,
-                                float(config["CLIP_EPS"]),
-                                float(config["ENT_COEF"]),
-                            )
-                            actor_state[agent_idx] = new_state
+                (actor_state, rng), _ = jax.lax.scan(
+                    _update_epoch,
+                    (actor_state, rng),
+                    None,
+                    length=int(config["UPDATE_EPOCHS"]),
+                )
 
                 world_flat = world_arr.reshape((-1, *world_arr.shape[2:]))
-                returns_flat = returns_all.reshape((-1,))
-                for _ in range(int(config["UPDATE_EPOCHS"])):
-                    critic_state, _ = update_value(critic_state, world_flat, returns_flat)
+                returns_time = jnp.swapaxes(returns, 0, 1)
+                returns_flat = returns_time.reshape((-1,))
 
-                if log_enabled:
-                    metrics = finalize_info_stats(info_stats)
-                    metrics["train/reward_mean"] = float(jnp.mean(rewards_arr))
-                    metrics["update_step"] = update_step + 1
-                    metrics["env_step"] = (update_step + 1) * num_steps * num_envs
-                    reward_per_agent = jnp.mean(rewards_arr, axis=(0, 2))
-                    for agent_idx, value in enumerate(reward_per_agent):
-                        metrics[f"agent/{agent_idx}/reward_mean"] = float(value)
-                    wandb.log(metrics, step=metrics["env_step"])
+                def _critic_epoch(state, _):
+                    state, _ = update_value(state, world_flat, returns_flat)
+                    return state, None
 
-                if ckpt_dir and ckpt_every > 0 and ((update_step + 1) % ckpt_every == 0):
-                    save_checkpoint(
-                        ckpt_dir,
-                        update_step + 1,
-                        {
-                            "actor_params": [state.params for state in actor_state],
-                            "critic_params": critic_state.params,
-                        },
-                        keep=ckpt_keep,
-                    )
+                critic_state, _ = jax.lax.scan(
+                    _critic_epoch,
+                    critic_state,
+                    None,
+                    length=int(config["UPDATE_EPOCHS"]),
+                )
 
-            return actor_state, critic_state
+                info_mean = jax.tree_util.tree_map(lambda x: jnp.mean(x, axis=0), info_means)
+                metrics = {
+                    "train/reward_mean": jnp.mean(rewards_arr),
+                    "update_step": update_step + 1,
+                    "env_step": (update_step + 1) * num_steps * num_envs,
+                }
+                reward_per_agent = jnp.mean(rewards_arr, axis=(0, 2))
+                for agent_idx, value in enumerate(reward_per_agent):
+                    metrics[f"agent/{agent_idx}/reward_mean"] = value
+                for key in info_mean:
+                    metrics[f"env/{key}"] = info_mean[key]
+                do_save = (update_step + 1) % ckpt_every == 0 if (ckpt_dir and ckpt_every > 0) else False
+                jax.debug.callback(_log_callback, metrics)
+                jax.debug.callback(
+                    _save_callback,
+                    update_step + 1,
+                    actor_state.params,
+                    critic_state.params,
+                    do_save,
+                )
+
+                return (actor_state, critic_state, env_state, last_obs, rng, update_step + 1), metrics
+
+            init_carry = (actor_state, critic_state, env_state, obs, rng, 0)
+
+            def _train_independent(carry):
+                return jax.lax.scan(_update_step, carry, None, length=num_updates)
+
+            final_carry, _ = jax.jit(_train_independent)(init_carry)
+            return final_carry[0], final_carry[1]
 
         def _log_callback(metrics):
             if log_enabled:
