@@ -23,7 +23,10 @@ def build_config(cfg: DictConfig) -> Dict[str, Any]:
     algorithm_cfg["ENV_KWARGS"] = env_cfg.get("env_kwargs", {})
     algorithm_cfg["ENV_ID"] = env_cfg.get("env_name")
     algorithm_cfg["ALGORITHM"] = algorithm_cfg.get("name")
-    algorithm_cfg["WANDB"] = dict(config.get("wandb", {}))
+    wandb_cfg = dict(config.get("wandb", {}))
+    env_wandb = dict(env_cfg.get("wandb", {}))
+    wandb_cfg.update(env_wandb)
+    algorithm_cfg["WANDB"] = wandb_cfg
 
     if cfg.seed is not None:
         algorithm_cfg["SEED"] = cfg.seed

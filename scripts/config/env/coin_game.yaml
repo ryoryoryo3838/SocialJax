@@ -10,3 +10,7 @@ env_kwargs:
     - [1, 1, -2]
   cnn: true
   jit: true
+wandb:
+  project: socialjax_components_coin_game
+  tags:
+    - coin_game

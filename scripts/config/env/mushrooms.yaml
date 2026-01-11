@@ -10,3 +10,7 @@ env_kwargs:
   regrow_rate_orange: 1.0
   cnn: true
   jit: true
+wandb:
+  project: socialjax_components_mushrooms
+  tags:
+    - mushrooms

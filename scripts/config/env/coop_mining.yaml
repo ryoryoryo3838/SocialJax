@@ -14,3 +14,7 @@ env_kwargs:
   regrowth_prob_gold: 0.00008
   cnn: true
   jit: true
+wandb:
+  project: socialjax_components_coop_mining
+  tags:
+    - coop_mining

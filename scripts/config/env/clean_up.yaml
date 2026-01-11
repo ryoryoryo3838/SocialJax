@@ -11,3 +11,7 @@ env_kwargs:
   thresholdRestoration: 0.0
   dirtSpawnProbability: 0.5
   delayStartOfDirtSpawning: 50
+wandb:
+  project: socialjax_components_clean_up
+  tags:
+    - clean_up

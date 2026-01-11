@@ -6,3 +6,7 @@ env_kwargs:
   shared_rewards: true
   cnn: true
   jit: true
+wandb:
+  project: socialjax_components_territory_open
+  tags:
+    - territory_open
