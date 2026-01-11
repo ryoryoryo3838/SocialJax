@@ -215,6 +215,9 @@ def make_train(config: Dict):
                     metrics["train/reward_mean"] = float(jnp.mean(jnp.stack(rewards_buf)))
                     metrics["update_step"] = update_step + 1
                     metrics["env_step"] = (update_step + 1) * num_steps * num_envs
+                    reward_per_agent = jnp.mean(rewards_arr, axis=(0, 2))
+                    for agent_idx, value in enumerate(reward_per_agent):
+                        metrics[f"agent/{agent_idx}/reward_mean"] = float(value)
                     wandb.log(metrics, step=metrics["env_step"])
 
                 if ckpt_dir and ckpt_every > 0 and ((update_step + 1) % ckpt_every == 0):

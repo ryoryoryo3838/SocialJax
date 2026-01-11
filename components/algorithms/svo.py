@@ -194,6 +194,7 @@ def make_train(config: Dict):
                 logp_arr = jnp.stack(logp_buf)
                 values_arr = jnp.stack(values_buf)
                 rewards_arr = jnp.stack(rewards_buf)
+                extrinsic_arr = jnp.stack(extrinsic_rewards_buf)
                 dones_arr = jnp.stack(dones_buf)
 
                 for agent_idx in range(num_agents):
@@ -250,12 +251,18 @@ def make_train(config: Dict):
 
                 if log_enabled:
                     metrics = finalize_info_stats(info_stats)
-                    metrics["train/svo_reward_mean"] = float(jnp.mean(jnp.stack(rewards_buf)))
-                    metrics["train/extrinsic_reward_mean"] = float(jnp.mean(jnp.stack(extrinsic_rewards_buf)))
+                    metrics["train/svo_reward_mean"] = float(jnp.mean(rewards_arr))
+                    metrics["train/extrinsic_reward_mean"] = float(jnp.mean(extrinsic_arr))
                     if theta_buf:
                         metrics["svo/theta_mean"] = float(jnp.mean(jnp.stack(theta_buf)))
                     metrics["update_step"] = update_step + 1
                     metrics["env_step"] = (update_step + 1) * num_steps * num_envs
+                    reward_per_agent = jnp.mean(rewards_arr, axis=(0, 2))
+                    extrinsic_per_agent = jnp.mean(extrinsic_arr, axis=(0, 2))
+                    for agent_idx, value in enumerate(reward_per_agent):
+                        metrics[f"agent/{agent_idx}/svo_reward_mean"] = float(value)
+                    for agent_idx, value in enumerate(extrinsic_per_agent):
+                        metrics[f"agent/{agent_idx}/extrinsic_reward_mean"] = float(value)
                     wandb.log(metrics, step=metrics["env_step"])
 
                 if ckpt_dir and ckpt_every > 0 and ((update_step + 1) % ckpt_every == 0):
