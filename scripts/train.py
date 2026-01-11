@@ -1,34 +1,33 @@
 """Hydra entrypoint for reusable SocialJax training runs."""
 from __future__ import annotations
 
-from typing import Any, Dict
-
 import hydra
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
-from components.algorithms.registry import get_entry
-from components.training.runner import build_config, run_training
+import jax
+
+from components.algorithms import ippo, mappo, svo
+from components.training.config import build_config
 
 
-def _overrides_from_cfg(cfg: DictConfig) -> Dict[str, Any]:
-    if cfg.overrides is None:
-        return {}
-    return OmegaConf.to_container(cfg.overrides, resolve=True)
+_ALGO_MAP = {
+    "ippo": ippo.make_train,
+    "mappo": mappo.make_train,
+    "svo": svo.make_train,
+}
 
 
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg: DictConfig) -> None:
-    entry = get_entry(cfg.algorithm.name, cfg.env.name)
-    overrides = _overrides_from_cfg(cfg)
+    config = build_config(cfg)
+    algo_name = cfg.algorithm.name
+    if algo_name not in _ALGO_MAP:
+        raise ValueError(f"Unknown algorithm '{algo_name}'.")
 
-    config = build_config(
-        entry,
-        overrides=overrides,
-        independent_policy=cfg.independent_policy,
-        independent_reward=cfg.independent_reward,
-        seed=cfg.seed,
-    )
-    run_training(entry, config, dry_run=cfg.dry_run)
+    train_fn = _ALGO_MAP[algo_name](config)
+    if cfg.dry_run:
+        return
+    train_fn(jax.random.PRNGKey(config["SEED"]))
 
 
 if __name__ == "__main__":

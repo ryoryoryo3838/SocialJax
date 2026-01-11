@@ -1,1 +1,2 @@
-name: mushrooms
+env_name: mushrooms
+env_kwargs: {}

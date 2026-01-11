@@ -1,13 +1,12 @@
 defaults:
   - algorithm: ippo
-  - env: cleanup
+  - env: clean_up
   - _self_
 
 independent_policy: null
 independent_reward: null
-seed: null
+seed: 0
 dry_run: false
-overrides: {}
 
 hydra:
   run:

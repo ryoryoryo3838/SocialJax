@@ -1,1 +1,2 @@
-name: coop_mining
+env_name: coop_mining
+env_kwargs: {}

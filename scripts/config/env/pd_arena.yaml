@@ -1,1 +1,2 @@
-name: pd_arena
+env_name: pd_arena
+env_kwargs: {}
