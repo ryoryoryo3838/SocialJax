@@ -94,23 +94,21 @@ def make_train(config: Dict):
                 )
                 return float(config["LR"]) * frac
 
-            actor_tx = optax.chain(
-                optax.clip_by_global_norm(float(config["MAX_GRAD_NORM"])),
-                optax.adam(learning_rate=lr_schedule, eps=1e-5),
-            )
-            critic_tx = optax.chain(
-                optax.clip_by_global_norm(float(config["MAX_GRAD_NORM"])),
-                optax.adam(learning_rate=lr_schedule, eps=1e-5),
-            )
+            actor_lr = lr_schedule
+            critic_lr = lr_schedule
         else:
-            actor_tx = optax.chain(
-                optax.clip_by_global_norm(float(config["MAX_GRAD_NORM"])),
-                optax.adam(float(config["LR"]), eps=1e-5),
-            )
-            critic_tx = optax.chain(
-                optax.clip_by_global_norm(float(config["MAX_GRAD_NORM"])),
-                optax.adam(float(config["LR"]), eps=1e-5),
-            )
+            actor_lr = float(config["LR"])
+            critic_lr = float(config["LR"])
+
+        actor_tx = optax.chain(
+            optax.clip_by_global_norm(float(config["MAX_GRAD_NORM"])),
+            optax.adam(learning_rate=actor_lr, eps=1e-5),
+        )
+        actor_tx_ind = optax.adam(learning_rate=actor_lr, eps=1e-5)
+        critic_tx = optax.chain(
+            optax.clip_by_global_norm(float(config["MAX_GRAD_NORM"])),
+            optax.adam(learning_rate=critic_lr, eps=1e-5),
+        )
 
         if parameter_sharing:
             actor_state = TrainState.create(
@@ -119,17 +117,22 @@ def make_train(config: Dict):
                 tx=actor_tx,
             )
         else:
+            def _broadcast_agent_leaves(tree):
+                def _maybe_broadcast(x):
+                    if hasattr(x, "ndim"):
+                        if x.ndim == 0:
+                            return jnp.broadcast_to(x, (num_agents,))
+                        if x.shape[0] != num_agents:
+                            return jnp.broadcast_to(x, (num_agents, *x.shape))
+                    return x
+
+                return jax.tree_util.tree_map(_maybe_broadcast, tree)
+
             actor_params = jax.tree_util.tree_map(
                 lambda x: jnp.stack([x] * num_agents, axis=0), actor_params
             )
-            actor_state = TrainState.create(
-                apply_fn=actor_net.apply,
-                params=actor_params,
-                tx=actor_tx,
-            )
-            actor_state = actor_state.replace(
-                step=jnp.zeros((num_agents,), dtype=jnp.int32)
-            )
+            actor_opt_state = actor_tx_ind.init(actor_params)
+            actor_opt_state = _broadcast_agent_leaves(actor_opt_state)
 
         critic_state = TrainState.create(
             apply_fn=critic_net.apply,
@@ -160,14 +163,36 @@ def make_train(config: Dict):
                     keep=ckpt_keep,
                 )
 
+            def _clip_grads(grads, max_norm):
+                g_norm = optax.global_norm(grads)
+                scale = jnp.minimum(1.0, max_norm / (g_norm + 1e-6))
+                return jax.tree_util.tree_map(lambda g: g * scale, grads)
+
+            def _update_actor(params, opt_state, batch, clip_eps, ent_coef):
+                def _loss(p, b):
+                    dist = actor_net.apply(p, b.obs)
+                    log_probs = dist.log_prob(b.actions)
+                    entropy = dist.entropy().mean()
+                    ratios = jnp.exp(log_probs - b.old_log_probs)
+                    unclipped = ratios * b.advantages
+                    clipped = jnp.clip(
+                        ratios, 1.0 - clip_eps, 1.0 + clip_eps
+                    ) * b.advantages
+                    policy_loss = -jnp.mean(jnp.minimum(unclipped, clipped))
+                    return policy_loss - ent_coef * entropy
+
+                grads = jax.grad(_loss)(params, batch)
+                grads = _clip_grads(grads, float(config["MAX_GRAD_NORM"]))
+                updates, new_opt_state = actor_tx_ind.update(grads, opt_state, params)
+                new_params = optax.apply_updates(params, updates)
+                return new_params, new_opt_state
+
             def _env_step(carry, _):
-                actor_state, critic_state, env_state, last_obs, rng = carry
+                actor_params, actor_opt_state, critic_state, env_state, last_obs, rng = carry
                 rng, action_rng, step_rng = jax.random.split(rng, 3)
                 obs_agents = jnp.swapaxes(last_obs, 0, 1)
                 agent_rngs = jax.random.split(action_rng, num_agents)
-                dist = jax.vmap(actor_state.apply_fn, in_axes=(0, 0))(
-                    actor_state.params, obs_agents
-                )
+                dist = jax.vmap(actor_net.apply, in_axes=(0, 0))(actor_params, obs_agents)
                 action = jax.vmap(lambda d, k: d.sample(seed=k))(dist, agent_rngs)
                 logp = dist.log_prob(action)
                 env_actions = list(action)
@@ -196,13 +221,13 @@ def make_train(config: Dict):
                     world_flat,
                     info_mean,
                 )
-                return (actor_state, critic_state, env_state, obs, rng), transition
+                return (actor_params, actor_opt_state, critic_state, env_state, obs, rng), transition
 
             def _update_step(carry, _):
-                actor_state, critic_state, env_state, last_obs, rng, update_step = carry
-                (actor_state, critic_state, env_state, last_obs, rng), traj = jax.lax.scan(
+                actor_params, actor_opt_state, critic_state, env_state, last_obs, rng, update_step = carry
+                (actor_params, actor_opt_state, critic_state, env_state, last_obs, rng), traj = jax.lax.scan(
                     _env_step,
-                    (actor_state, critic_state, env_state, last_obs, rng),
+                    (actor_params, actor_opt_state, critic_state, env_state, last_obs, rng),
                     None,
                     length=num_steps,
                 )
@@ -254,10 +279,16 @@ def make_train(config: Dict):
                 num_minibatches = int(config["NUM_MINIBATCHES"])
 
                 def _gather(x, idx):
-                    return jax.vmap(lambda x_i, idx_i: x_i[idx_i])(x, idx)
+                    x = jnp.asarray(x)
+                    if x.ndim == 0:
+                        x = jnp.broadcast_to(x, (num_agents, batch_size))
+                    elif x.ndim == 1:
+                        x = jnp.broadcast_to(x[None, :], (num_agents, x.shape[0]))
+                    take_idx = idx[(...,) + (None,) * (x.ndim - 2)]
+                    return jnp.take_along_axis(x, take_idx, axis=1)
 
                 def _update_epoch(carry, _):
-                    actor_state, rng = carry
+                    state, rng = carry
                     rng, perm_rng = jax.random.split(rng)
                     agent_rngs = jax.random.split(perm_rng, num_agents)
                     perm = jax.vmap(
@@ -274,26 +305,40 @@ def make_train(config: Dict):
                             advantages=_gather(batch.advantages, mb_idx),
                             returns=_gather(batch.returns, mb_idx),
                         )
-                        state, _ = jax.vmap(
-                            update_actor, in_axes=(0, 0, None, None)
-                        )(
-                            state,
-                            mbatch,
-                            float(config["CLIP_EPS"]),
-                            float(config["ENT_COEF"]),
-                        )
-                        return state, None
+                        params, opt_state = state
+                        agent_ids = jnp.arange(num_agents)
+
+                        def _update_agent(agent_idx):
+                            p = jax.tree_util.tree_map(lambda x: x[agent_idx], params)
+                            o = jax.tree_util.tree_map(lambda x: x[agent_idx], opt_state)
+                            b = PPOBatch(
+                                obs=mbatch.obs[agent_idx],
+                                actions=mbatch.actions[agent_idx],
+                                old_log_probs=mbatch.old_log_probs[agent_idx],
+                                advantages=mbatch.advantages[agent_idx],
+                                returns=mbatch.returns[agent_idx],
+                            )
+                            return _update_actor(
+                                p,
+                                o,
+                                b,
+                                float(config["CLIP_EPS"]),
+                                float(config["ENT_COEF"]),
+                            )
+
+                        params, opt_state = jax.vmap(_update_agent)(agent_ids)
+                        return (params, opt_state), None
 
                     state, _ = jax.lax.scan(
                         _minibatch,
-                        actor_state,
+                        state,
                         jnp.arange(num_minibatches),
                     )
                     return (state, rng), None
 
-                (actor_state, rng), _ = jax.lax.scan(
+                ((actor_params, actor_opt_state), rng), _ = jax.lax.scan(
                     _update_epoch,
-                    (actor_state, rng),
+                    ((actor_params, actor_opt_state), rng),
                     None,
                     length=int(config["UPDATE_EPOCHS"]),
                 )
@@ -329,20 +374,20 @@ def make_train(config: Dict):
                 jax.debug.callback(
                     _save_callback,
                     update_step + 1,
-                    actor_state.params,
+                    actor_params,
                     critic_state.params,
                     do_save,
                 )
 
-                return (actor_state, critic_state, env_state, last_obs, rng, update_step + 1), metrics
+                return (actor_params, actor_opt_state, critic_state, env_state, last_obs, rng, update_step + 1), metrics
 
-            init_carry = (actor_state, critic_state, env_state, obs, rng, 0)
+            init_carry = (actor_params, actor_opt_state, critic_state, env_state, obs, rng, 0)
 
             def _train_independent(carry):
                 return jax.lax.scan(_update_step, carry, None, length=num_updates)
 
             final_carry, _ = jax.jit(_train_independent)(init_carry)
-            return final_carry[0], final_carry[1]
+            return final_carry[0], final_carry[2]
 
         def _log_callback(metrics):
             log_metrics(metrics, wandb if log_enabled else None)
