@@ -9,6 +9,9 @@ import jax
 from components.algorithms import ippo, mappo, svo
 from components.training.config import build_config
 
+from absl import logging as absl_logging
+absl_logging.set_verbosity(absl_logging.ERROR)
+
 
 _ALGO_MAP = {
     "ippo": ippo.make_train,

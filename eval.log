@@ -1,0 +1,79 @@
+[2026-01-13 17:33:30,276][absl][INFO] - Restoring orbax checkpoint from checkpoints/components/ippo/checkpoint_100
+[2026-01-13 17:33:30,276][absl][INFO] - save_device_host_concurrent_bytes=None
+[2026-01-13 17:33:30,276][absl][INFO] - Created BasePyTreeCheckpointHandler: use_ocdbt=True, use_zarr3=False, pytree_metadata_options=PyTreeMetadataOptions(support_rich_types=False), array_metadata_store=<orbax.checkpoint._src.metadata.array_metadata_store.Store object at 0x706d0048f220>, enable_pinned_host_transfer=True, save_concurrent_bytes: 96000000000 (89.4 GiB), restore_concurrent_bytes: 96000000000 (89.4 GiB)
+[2026-01-13 17:33:30,276][absl][INFO] - orbax-checkpoint version: 0.11.31
+[2026-01-13 17:33:30,277][absl][INFO] - Restoring checkpoint from checkpoints/components/ippo/checkpoint_100.
+[2026-01-13 17:33:30,286][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,286][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,287][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,289][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,290][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,292][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,293][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,294][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,295][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,296][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,296][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,296][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,296][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,297][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,297][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:33:30,297][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,260][absl][INFO] - Restoring orbax checkpoint from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_100
+[2026-01-13 17:34:09,260][absl][INFO] - save_device_host_concurrent_bytes=None
+[2026-01-13 17:34:09,260][absl][INFO] - Created BasePyTreeCheckpointHandler: use_ocdbt=True, use_zarr3=False, pytree_metadata_options=PyTreeMetadataOptions(support_rich_types=False), array_metadata_store=<orbax.checkpoint._src.metadata.array_metadata_store.Store object at 0x70e270282f80>, enable_pinned_host_transfer=True, save_concurrent_bytes: 96000000000 (89.4 GiB), restore_concurrent_bytes: 96000000000 (89.4 GiB)
+[2026-01-13 17:34:09,261][absl][INFO] - orbax-checkpoint version: 0.11.31
+[2026-01-13 17:34:09,263][absl][INFO] - Restoring checkpoint from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_100.
+[2026-01-13 17:34:09,280][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,281][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,282][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,283][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,284][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,285][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,286][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,286][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,287][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,288][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,288][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,289][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,289][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,290][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,290][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:34:09,290][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:35:19,384][absl][INFO] - Restoring orbax checkpoint from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_100
+[2026-01-13 17:35:19,384][absl][INFO] - save_device_host_concurrent_bytes=None
+[2026-01-13 17:35:19,384][absl][INFO] - Created BasePyTreeCheckpointHandler: use_ocdbt=True, use_zarr3=False, pytree_metadata_options=PyTreeMetadataOptions(support_rich_types=False), array_metadata_store=<orbax.checkpoint._src.metadata.array_metadata_store.Store object at 0x7fbd9817f2b0>, enable_pinned_host_transfer=False, save_concurrent_bytes: 96000000000 (89.4 GiB), restore_concurrent_bytes: 96000000000 (89.4 GiB)
+[2026-01-13 17:35:19,384][absl][INFO] - orbax-checkpoint version: 0.11.31
+[2026-01-13 17:35:19,387][absl][INFO] - Restoring checkpoint from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_100.
+[2026-01-13 17:35:19,409][absl][INFO] - [thread=MainThread] Failed to get flag value for EXPERIMENTAL_ORBAX_USE_DISTRIBUTED_PROCESS_ID.
+[2026-01-13 17:35:19,415][absl][INFO] - [process=0] /jax/checkpoint/read/gbytes_per_sec: 40.372 MiB/s (total gbytes: 1.1 MiB) (time elapsed: 27 milliseconds) (per-host)
+[2026-01-13 17:35:19,415][absl][INFO] - Finished restoring checkpoint in 0.03 seconds from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_100.
+[2026-01-13 17:48:46,215][absl][INFO] - Restoring orbax checkpoint from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_1000
+[2026-01-13 17:48:46,215][absl][INFO] - save_device_host_concurrent_bytes=None
+[2026-01-13 17:48:46,215][absl][INFO] - Created BasePyTreeCheckpointHandler: use_ocdbt=True, use_zarr3=False, pytree_metadata_options=PyTreeMetadataOptions(support_rich_types=False), array_metadata_store=<orbax.checkpoint._src.metadata.array_metadata_store.Store object at 0x78f73c296e30>, enable_pinned_host_transfer=True, save_concurrent_bytes: 96000000000 (89.4 GiB), restore_concurrent_bytes: 96000000000 (89.4 GiB)
+[2026-01-13 17:48:46,216][absl][INFO] - orbax-checkpoint version: 0.11.31
+[2026-01-13 17:48:46,218][absl][INFO] - Restoring checkpoint from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_1000.
+[2026-01-13 17:48:46,234][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,236][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,237][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,237][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,239][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,240][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,241][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,242][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,242][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,243][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,243][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,244][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,245][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,246][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,246][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:48:46,247][root][ERROR] - Device TFRT_CPU_0 was not found in jax.local_devices().
+[2026-01-13 17:49:07,216][absl][INFO] - Restoring orbax checkpoint from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_1000
+[2026-01-13 17:49:07,216][absl][INFO] - save_device_host_concurrent_bytes=None
+[2026-01-13 17:49:07,216][absl][INFO] - Created BasePyTreeCheckpointHandler: use_ocdbt=True, use_zarr3=False, pytree_metadata_options=PyTreeMetadataOptions(support_rich_types=False), array_metadata_store=<orbax.checkpoint._src.metadata.array_metadata_store.Store object at 0x73715c1872b0>, enable_pinned_host_transfer=False, save_concurrent_bytes: 96000000000 (89.4 GiB), restore_concurrent_bytes: 96000000000 (89.4 GiB)
+[2026-01-13 17:49:07,216][absl][INFO] - orbax-checkpoint version: 0.11.31
+[2026-01-13 17:49:07,219][absl][INFO] - Restoring checkpoint from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_1000.
+[2026-01-13 17:49:07,248][absl][INFO] - [thread=MainThread] Failed to get flag value for EXPERIMENTAL_ORBAX_USE_DISTRIBUTED_PROCESS_ID.
+[2026-01-13 17:49:07,256][absl][INFO] - [process=0] /jax/checkpoint/read/gbytes_per_sec: 30.304 MiB/s (total gbytes: 1.1 MiB) (time elapsed: 36 milliseconds) (per-host)
+[2026-01-13 17:49:07,257][absl][INFO] - Finished restoring checkpoint in 0.04 seconds from /home/romanohu/project/wkb/SocialJax/checkpoints/components/ippo/checkpoint_1000.

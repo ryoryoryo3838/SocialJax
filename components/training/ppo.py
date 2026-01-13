@@ -80,9 +80,18 @@ def update_ppo(
     ent_coef: float,
     vf_coef: float,
 ):
-    grad_fn = jax.value_and_grad(_loss_fn, has_aux=True)
+    def _loss(params, batch, clip_eps, ent_coef, vf_coef):
+        return _loss_fn(
+            train_state.apply_fn,
+            params,
+            batch,
+            clip_eps,
+            ent_coef,
+            vf_coef,
+        )
+
+    grad_fn = jax.value_and_grad(_loss, has_aux=True)
     (loss, metrics), grads = grad_fn(
-        train_state.apply_fn,
         train_state.params,
         batch,
         clip_eps,
@@ -100,8 +109,8 @@ def update_actor(
     clip_eps: float,
     ent_coef: float,
 ):
-    def _actor_loss(apply_fn, params, batch, clip_eps, ent_coef):
-        dist = apply_fn(params, batch.obs)
+    def _actor_loss(params, batch, clip_eps, ent_coef):
+        dist = train_state.apply_fn(params, batch.obs)
         log_probs = dist.log_prob(batch.actions)
         entropy = dist.entropy().mean()
         ratios = jnp.exp(log_probs - batch.old_log_probs)
@@ -113,7 +122,6 @@ def update_actor(
 
     grad_fn = jax.value_and_grad(_actor_loss, has_aux=True)
     (loss, metrics), grads = grad_fn(
-        train_state.apply_fn,
         train_state.params,
         batch,
         clip_eps,
@@ -125,12 +133,12 @@ def update_actor(
 
 
 def update_value(train_state, obs: jnp.ndarray, returns: jnp.ndarray):
-    def _value_loss(apply_fn, params, obs, returns):
-        value = apply_fn(params, obs)
+    def _value_loss(params, obs, returns):
+        value = train_state.apply_fn(params, obs)
         loss = jnp.mean(jnp.square(returns - value))
         return loss
 
     grad_fn = jax.value_and_grad(_value_loss)
-    loss, grads = grad_fn(train_state.apply_fn, train_state.params, obs, returns)
+    loss, grads = grad_fn(train_state.params, obs, returns)
     new_state = train_state.apply_gradients(grads=grads)
     return new_state, {"value_loss": loss}

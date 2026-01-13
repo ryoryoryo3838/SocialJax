@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+import os
+
 from omegaconf import DictConfig, OmegaConf
 
 
@@ -28,19 +30,26 @@ def build_config(cfg: DictConfig) -> Dict[str, Any]:
     wandb_cfg.update(env_wandb)
     algorithm_cfg["WANDB"] = wandb_cfg
 
-    if cfg.seed is not None:
-        algorithm_cfg["SEED"] = cfg.seed
+    seed = cfg.get("seed")
+    if seed is not None:
+        algorithm_cfg["SEED"] = seed
 
-    if cfg.independent_policy is not None:
-        algorithm_cfg["PARAMETER_SHARING"] = not cfg.independent_policy
+    independent_policy = cfg.get("independent_policy")
+    if independent_policy is not None:
+        algorithm_cfg["PARAMETER_SHARING"] = not independent_policy
 
-    if cfg.independent_reward is not None:
-        _set_nested(algorithm_cfg, "ENV_KWARGS.shared_rewards", not cfg.independent_reward)
+    independent_reward = cfg.get("independent_reward")
+    if independent_reward is not None:
+        _set_nested(algorithm_cfg, "ENV_KWARGS.shared_rewards", not independent_reward)
 
     encoder_type = str(algorithm_cfg.get("ENCODER_TYPE", "cnn")).lower()
     if encoder_type in ("cnn", "transformer"):
         _set_nested(algorithm_cfg, "ENV_KWARGS.cnn", True)
     elif encoder_type == "mlp":
         _set_nested(algorithm_cfg, "ENV_KWARGS.cnn", False)
+
+    ckpt_dir = algorithm_cfg.get("CHECKPOINT_DIR")
+    if ckpt_dir and not os.path.isabs(ckpt_dir):
+        algorithm_cfg["CHECKPOINT_DIR"] = os.path.abspath(ckpt_dir)
 
     return algorithm_cfg

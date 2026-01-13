@@ -1,0 +1,171 @@
+[2026-01-13 17:16:16,582][absl][ERROR] - [process=0][thread=array_type_handler][operation_id=1] _SignalingThread.run() raised an exception: Checkpoint path should be absolute. Got checkpoints/components/ippo/checkpoint_10.orbax-checkpoint-tmp
+Traceback (most recent call last):
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 312, in run
+    super().run()
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/threading.py", line 953, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 257, in _target_setting_result
+    self._result = target()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 391, in <lambda>
+    target=lambda: asyncio_utils.run_sync(coro),
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/asyncio_utils.py", line 36, in run_sync
+    return asyncio.run(coro)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+    return future.result()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py", line 373, in _serialize_without_dispatcher
+    await async_serialize_replica_slices_batch(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py", line 570, in _async_serialize_replica_slices
+    array_write_spec = ts_utils.build_array_write_spec(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/tensorstore_utils.py", line 759, in build_array_write_spec
+    return ArrayWriteSpec(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/tensorstore_utils.py", line 458, in __init__
+    kvstore_tspec = build_kvstore_tspec(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/tensorstore_utils.py", line 170, in build_kvstore_tspec
+    raise ValueError(f'Checkpoint path should be absolute. Got {directory}')
+ValueError: Checkpoint path should be absolute. Got checkpoints/components/ippo/checkpoint_10.orbax-checkpoint-tmp
+[2026-01-13 17:16:16,619][absl][ERROR] - [process=0][thread=write_metadata_after_commits][operation_id=1] _SignalingThread.run() raised an exception: Checkpoint path should be absolute. Got checkpoints/components/ippo/checkpoint_10.orbax-checkpoint-tmp
+Traceback (most recent call last):
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 312, in run
+    super().run()
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/threading.py", line 953, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 257, in _target_setting_result
+    self._result = target()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 391, in <lambda>
+    target=lambda: asyncio_utils.run_sync(coro),
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/asyncio_utils.py", line 36, in run_sync
+    return asyncio.run(coro)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+    return future.result()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/handlers/base_pytree_checkpoint_handler.py", line 1198, in _write_metadata_after_commits
+    await asyncio.to_thread(commit_future.result)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 449, in result
+    return self._f.result(timeout=timeout)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 398, in result
+    return self._t.result(timeout=timeout)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 347, in result
+    self.join(timeout=timeout)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 344, in join
+    raise self._exception
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 312, in run
+    super().run()
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/threading.py", line 953, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 257, in _target_setting_result
+    self._result = target()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 391, in <lambda>
+    target=lambda: asyncio_utils.run_sync(coro),
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/asyncio_utils.py", line 36, in run_sync
+    return asyncio.run(coro)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+    return future.result()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py", line 373, in _serialize_without_dispatcher
+    await async_serialize_replica_slices_batch(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py", line 570, in _async_serialize_replica_slices
+    array_write_spec = ts_utils.build_array_write_spec(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/tensorstore_utils.py", line 759, in build_array_write_spec
+    return ArrayWriteSpec(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/tensorstore_utils.py", line 458, in __init__
+    kvstore_tspec = build_kvstore_tspec(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/tensorstore_utils.py", line 170, in build_kvstore_tspec
+    raise ValueError(f'Checkpoint path should be absolute. Got {directory}')
+ValueError: Checkpoint path should be absolute. Got checkpoints/components/ippo/checkpoint_10.orbax-checkpoint-tmp
+[2026-01-13 17:16:16,624][jax._src.debugging][ERROR] - jax.debug.callback failed
+Traceback (most recent call last):
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/jax/_src/debugging.py", line 96, in debug_callback_impl
+    callback(*args)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/jax/_src/debugging.py", line 336, in _flat_callback
+    callback(*args, **kwargs)
+  File "/home/romanohu/project/wkb/SocialJax/components/algorithms/ippo.py", line 317, in _save_callback
+    save_checkpoint(ckpt_dir, int(step), {"params": params}, keep=ckpt_keep)
+  File "/home/romanohu/project/wkb/SocialJax/components/training/checkpoint.py", line 12, in save_checkpoint
+    checkpoints.save_checkpoint(ckpt_dir, payload, step, keep=keep, overwrite=True)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/flax/training/checkpoints.py", line 693, in save_checkpoint
+    orbax_checkpointer.save(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/checkpointers/checkpointer.py", line 259, in save
+    self._handler.save(tmpdir.get(), args=ckpt_args)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/handlers/pytree_checkpoint_handler.py", line 666, in save
+    self._handler_impl.save(directory, args=args)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/handlers/base_pytree_checkpoint_handler.py", line 764, in save
+    asyncio_utils.run_sync(async_save(directory, *args, **kwargs))
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/asyncio_utils.py", line 36, in run_sync
+    return asyncio.run(coro)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+    return future.result()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/handlers/base_pytree_checkpoint_handler.py", line 762, in async_save
+    f.result()  # Block on result.
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 196, in result
+    f.result(timeout=time_remaining)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 449, in result
+    return self._f.result(timeout=timeout)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 398, in result
+    return self._t.result(timeout=timeout)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 347, in result
+    self.join(timeout=timeout)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 344, in join
+    raise self._exception
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 312, in run
+    super().run()
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/threading.py", line 953, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 257, in _target_setting_result
+    self._result = target()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 391, in <lambda>
+    target=lambda: asyncio_utils.run_sync(coro),
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/asyncio_utils.py", line 36, in run_sync
+    return asyncio.run(coro)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+    return future.result()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/handlers/base_pytree_checkpoint_handler.py", line 1198, in _write_metadata_after_commits
+    await asyncio.to_thread(commit_future.result)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/threads.py", line 25, in to_thread
+    return await loop.run_in_executor(None, func_call)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 449, in result
+    return self._f.result(timeout=timeout)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 398, in result
+    return self._t.result(timeout=timeout)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 347, in result
+    self.join(timeout=timeout)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 344, in join
+    raise self._exception
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 312, in run
+    super().run()
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/threading.py", line 953, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 257, in _target_setting_result
+    self._result = target()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/futures/future.py", line 391, in <lambda>
+    target=lambda: asyncio_utils.run_sync(coro),
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/asyncio_utils.py", line 36, in run_sync
+    return asyncio.run(coro)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/home/romanohu/.local/share/uv/python/cpython-3.10.19-linux-x86_64-gnu/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+    return future.result()
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py", line 373, in _serialize_without_dispatcher
+    await async_serialize_replica_slices_batch(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py", line 570, in _async_serialize_replica_slices
+    array_write_spec = ts_utils.build_array_write_spec(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/tensorstore_utils.py", line 759, in build_array_write_spec
+    return ArrayWriteSpec(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/tensorstore_utils.py", line 458, in __init__
+    kvstore_tspec = build_kvstore_tspec(
+  File "/home/romanohu/project/wkb/SocialJax/.venv/lib/python3.10/site-packages/orbax/checkpoint/_src/serialization/tensorstore_utils.py", line 170, in build_kvstore_tspec
+    raise ValueError(f'Checkpoint path should be absolute. Got {directory}')
+ValueError: Checkpoint path should be absolute. Got checkpoints/components/ippo/checkpoint_10.orbax-checkpoint-tmp
