@@ -445,7 +445,11 @@ def make_train(config: Dict):
                 def _minibatch(state, idx):
                     actor_state, critic_state = state
                     start = idx * minibatch_size
-                    mb_idx = perm[start:start + minibatch_size]
+                    mb_idx = jax.lax.dynamic_slice(
+                        perm,
+                        (start,),
+                        (minibatch_size,),
+                    )
                     mbatch = PPOBatch(
                         obs=batch.obs[mb_idx],
                         actions=batch.actions[mb_idx],
