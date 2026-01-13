@@ -74,15 +74,14 @@ PYTHONPATH=. uv run python scripts/eval.py algorithm=ippo env=clean_up checkpoin
 
 ### result
 We use **wandb** for tracking learning progress.
-To view learning logs/gifs/pkl files, please check:
-- /outputs
+To view learning artifacts, please check:
+- /runs/YYYY-MM-DD_HH-MM-SS (training runs, checkpoints)
 - /wandb
-- /checkpoints
-- /evaluation
+- /evaluation/components (evaluation GIFs)
 
 Component runner notes:
 - It logs env info metrics (e.g. cleanup's cleaned_water) to wandb automatically.
-- It saves checkpoints under checkpoints/components/* by default.
+- It saves checkpoints under runs/YYYY-MM-DD_HH-MM-SS/checkpoints/<algorithm> by default.
 
 ---
 This software includes modified code from SocialJax.

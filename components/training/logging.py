@@ -1,6 +1,7 @@
 """Logging utilities for training."""
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 import jax.numpy as jnp
@@ -22,9 +23,8 @@ def init_wandb(config: Dict[str, Any]) -> Optional[Any]:
     mode = wandb_cfg.get("mode", "online")
 
     if name is None:
-        algo = config.get("ALGORITHM", "algo")
-        env_id = config.get("ENV_NAME", "env")
-        name = f"{algo}_{env_id}"
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        name = f"run/{timestamp}"
 
     try:
         wandb.init(
