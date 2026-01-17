@@ -13,3 +13,5 @@ hydra:
   output_subdir: null
   job:
     chdir: false
+    env_set:
+      PYTHONPATH: .
