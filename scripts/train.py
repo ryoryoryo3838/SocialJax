@@ -8,10 +8,8 @@ import warnings
 
 from loguru import logger
 import hydra
-import jax
 from omegaconf import DictConfig, OmegaConf
 
-from components.algorithms import ippo, mappo, svo
 from components.training.config import build_config
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
@@ -28,18 +26,28 @@ warnings.filterwarnings(
 )
 
 
-_ALGO_MAP = {
-    "ippo": ippo.make_train,
-    "mappo": mappo.make_train,
-    "svo": svo.make_train,
-}
+_ALGO_NAMES = {"ippo", "mappo", "svo"}
+
+
+def _load_algorithms():
+    from components.algorithms import ippo, mappo, svo
+
+    return {
+        "ippo": ippo.make_train,
+        "mappo": mappo.make_train,
+        "svo": svo.make_train,
+    }
 
 
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg: DictConfig) -> None:
+    mem_fraction = cfg.get("xla_python_client_mem_fraction")
+    if mem_fraction is not None:
+        os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(mem_fraction)
+
     config = build_config(cfg)
     algo_name = cfg.algorithm.name
-    if algo_name not in _ALGO_MAP:
+    if algo_name not in _ALGO_NAMES:
         raise ValueError(f"Unknown algorithm '{algo_name}'.")
 
     run_id = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -62,10 +70,13 @@ def main(cfg: DictConfig) -> None:
         mode="w",
     )
 
-    train_fn = _ALGO_MAP[algo_name](config)
     if cfg.dry_run:
         OmegaConf.save(cfg, os.path.join(run_dir, "hydra.yaml"), resolve=True)
         return
+    import jax
+
+    algo_map = _load_algorithms()
+    train_fn = algo_map[algo_name](config)
     train_fn(jax.random.PRNGKey(config["SEED"]))
     OmegaConf.save(cfg, os.path.join(run_dir, "hydra.yaml"), resolve=True)
 
