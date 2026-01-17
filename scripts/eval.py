@@ -19,6 +19,7 @@ import socialjax
 from components.algorithms.networks import Actor, ActorCritic, Critic, EncoderConfig
 from components.training.checkpoint import agent_checkpoint_dir, load_checkpoint
 from components.training.config import build_config
+from components.training.logging import finalize_info_stats, update_info_stats
 from components.training.utils import build_world_state, flatten_obs, unflatten_actions
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
@@ -110,6 +111,13 @@ def main(cfg: DictConfig) -> None:
     if ckpt_dir is None:
         raise ValueError("checkpoint_dir is required for evaluation")
     output_root = _resolve_output_dir(cfg.output_dir, ckpt_dir)
+    output_root.mkdir(parents=True, exist_ok=True)
+    logger.add(
+        output_root / "eval.log",
+        level="INFO",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+        mode="w",
+    )
     eval_run_dir = Path(ckpt_dir).parent / "evaluation"
     eval_run_dir.mkdir(parents=True, exist_ok=True)
     OmegaConf.save(cfg, eval_run_dir / "hydra.yaml", resolve=True)
@@ -160,10 +168,16 @@ def main(cfg: DictConfig) -> None:
                 payload = load_checkpoint(ckpt_dir, cfg.checkpoint_step, target=target)
                 params = payload["params"]
 
+    info_stats: Dict[str, Dict[str, float]] = {}
+    episode_returns: List[float] = []
+    total_reward = 0.0
+    total_steps = 0
+
     for episode in range(cfg.num_episodes):
         rng, reset_rng = jax.random.split(rng)
         obs, env_state = env.reset(reset_rng)
         frames = []
+        episode_return = 0.0
         for step in range(cfg.max_steps):
             if cfg.render:
                 frame = np.array(env.render(env_state))
@@ -193,13 +207,36 @@ def main(cfg: DictConfig) -> None:
 
             rng, step_rng = jax.random.split(rng)
             obs, env_state, reward, done, info = env.step(step_rng, env_state, env_actions)
+            reward_mean = float(jnp.mean(reward))
+            episode_return += reward_mean
+            total_reward += reward_mean
+            total_steps += 1
+            if isinstance(info, dict):
+                update_info_stats(info_stats, info)
             if done["__all__"]:
                 break
 
+        episode_returns.append(episode_return)
         if cfg.render and frames:
             output_dir = output_root
             gif_path = output_dir / f"episode_{episode}.gif"
             _save_gif(frames, gif_path, cfg.gif_fps)
+
+    reward_mean = total_reward / total_steps if total_steps else 0.0
+    episode_return_mean = (
+        sum(episode_returns) / len(episode_returns) if episode_returns else 0.0
+    )
+    summary_parts = [
+        f"episodes={len(episode_returns)}",
+        f"steps={total_steps}",
+        f"reward_mean={reward_mean:.4f}",
+        f"episode_return_mean={episode_return_mean:.4f}",
+    ]
+    logger.info("eval_summary | " + " | ".join(summary_parts))
+    env_metrics = finalize_info_stats(info_stats)
+    if env_metrics:
+        env_parts = [f"{key}={value:.4f}" for key, value in sorted(env_metrics.items())]
+        logger.info("eval_env_metrics | " + " | ".join(env_parts))
 
 
 if __name__ == "__main__":

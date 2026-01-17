@@ -54,13 +54,19 @@ def main(cfg: DictConfig) -> None:
                 ckpt_dir = os.path.basename(ckpt_dir)
         config["CHECKPOINT_DIR"] = os.path.join(run_dir, ckpt_dir)
 
+    os.makedirs(run_dir, exist_ok=True)
+    logger.add(
+        os.path.join(run_dir, "train.log"),
+        level="INFO",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+        mode="w",
+    )
+
     train_fn = _ALGO_MAP[algo_name](config)
     if cfg.dry_run:
-        os.makedirs(run_dir, exist_ok=True)
         OmegaConf.save(cfg, os.path.join(run_dir, "hydra.yaml"), resolve=True)
         return
     train_fn(jax.random.PRNGKey(config["SEED"]))
-    os.makedirs(run_dir, exist_ok=True)
     OmegaConf.save(cfg, os.path.join(run_dir, "hydra.yaml"), resolve=True)
 
 

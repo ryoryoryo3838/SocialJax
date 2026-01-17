@@ -1,11 +1,8 @@
 __pycache__/
 Fixed_gifs/
-outputs/
 checkpoints/
 *.pickle
 .venv/
 wandb/
 runs/
 evaluation/
-eval.log
-train.log
