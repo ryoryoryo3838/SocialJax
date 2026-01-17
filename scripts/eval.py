@@ -12,7 +12,7 @@ import hydra
 import jax
 import jax.numpy as jnp
 import numpy as np
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from PIL import Image
 
 import socialjax
@@ -110,6 +110,9 @@ def main(cfg: DictConfig) -> None:
     if ckpt_dir is None:
         raise ValueError("checkpoint_dir is required for evaluation")
     output_root = _resolve_output_dir(cfg.output_dir, ckpt_dir)
+    eval_run_dir = Path(ckpt_dir).parent / "evaluation"
+    eval_run_dir.mkdir(parents=True, exist_ok=True)
+    OmegaConf.save(cfg, eval_run_dir / "hydra.yaml", resolve=True)
 
     encoder_cfg = _build_encoder_cfg(config)
     num_agents = env.num_agents

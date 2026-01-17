@@ -9,7 +9,7 @@ import warnings
 from loguru import logger
 import hydra
 import jax
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from components.algorithms import ippo, mappo, svo
 from components.training.config import build_config
@@ -56,8 +56,12 @@ def main(cfg: DictConfig) -> None:
 
     train_fn = _ALGO_MAP[algo_name](config)
     if cfg.dry_run:
+        os.makedirs(run_dir, exist_ok=True)
+        OmegaConf.save(cfg, os.path.join(run_dir, "hydra.yaml"), resolve=True)
         return
     train_fn(jax.random.PRNGKey(config["SEED"]))
+    os.makedirs(run_dir, exist_ok=True)
+    OmegaConf.save(cfg, os.path.join(run_dir, "hydra.yaml"), resolve=True)
 
 
 if __name__ == "__main__":
