@@ -119,6 +119,7 @@ def make_train(config: Dict):
 
         rng, reset_rng = jax.random.split(rng)
         reset_keys = jax.random.split(reset_rng, num_envs)
+        # Reset envs to start the rollout.
         obs, env_state = jax.vmap(env.reset, in_axes=(0,))(reset_keys)
 
         def _log_callback(metrics):
@@ -195,6 +196,7 @@ def make_train(config: Dict):
             last_world_flat = flatten_obs(last_world_repeat)
             last_value = critic_state.apply_fn(critic_state.params, last_world_flat)
 
+            # Compute GAE/returns from rollout.
             advantages, returns = compute_gae(
                 rewards_arr,
                 values_arr,
@@ -254,6 +256,7 @@ def make_train(config: Dict):
                 )
                 return (actor_state, critic_state, rng), None
 
+            # PPO update over epochs/minibatches.
             (actor_state, critic_state, rng), _ = jax.lax.scan(
                 _update_epoch,
                 (actor_state, critic_state, rng),
@@ -262,6 +265,7 @@ def make_train(config: Dict):
             )
 
             info_mean = jax.tree_util.tree_map(lambda x: jnp.mean(x, axis=0), info_means)
+            # Log metrics and optionally save checkpoints.
             metrics = {
                 "train/reward_mean": jnp.mean(rewards_arr),
                 "update_step": update_step + 1,

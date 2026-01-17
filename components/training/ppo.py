@@ -39,6 +39,7 @@ def compute_gae(
         mask = 1.0 - dones[t]
         next_value = last_value if t == num_steps - 1 else values[t + 1]
         delta = rewards[t] + gamma * next_value * mask - values[t]
+        # gae
         gae = delta + gamma * gae_lambda * mask * gae
         advantages.append(gae)
     advantages = jnp.stack(advantages[::-1])

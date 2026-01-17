@@ -136,6 +136,7 @@ def make_train(config: Dict):
 
             rng, reset_rng = jax.random.split(rng)
             reset_keys = jax.random.split(reset_rng, num_envs)
+            # Reset envs to start the rollout.
             obs, env_state = jax.vmap(env.reset, in_axes=(0,))(reset_keys)
 
             def _log_callback(metrics):
@@ -186,11 +187,13 @@ def make_train(config: Dict):
                 env_actions = list(action)
 
                 step_keys = jax.random.split(step_rng, num_envs)
+                # Step environments for one rollout timestep.
                 obs, env_state, reward, done, info = jax.vmap(
                     env.step, in_axes=(0, 0, 0)
                 )(step_keys, env_state, env_actions)
 
                 done_array = _done_dict_to_array(done, env.agents)
+                # Apply SVO reward shaping.
                 shaped_reward, theta = _shape_reward(reward)
                 info_mean = jax.tree_util.tree_map(lambda x: jnp.mean(x), info)
 
@@ -209,6 +212,7 @@ def make_train(config: Dict):
 
             def _update_step(carry, _):
                 params, opt_state, env_state, last_obs, rng, update_step = carry
+                # Roll out trajectories for NUM_STEPS.
                 (params, opt_state, env_state, last_obs, rng), traj = jax.lax.scan(
                     _env_step,
                     (params, opt_state, env_state, last_obs, rng),
@@ -234,6 +238,7 @@ def make_train(config: Dict):
                 values_agents = jnp.swapaxes(values_arr, 0, 1)
                 dones_agents = jnp.swapaxes(dones_arr, 0, 1)
 
+                # Compute GAE/returns from rollout.
                 advantages, returns = jax.vmap(
                     compute_gae, in_axes=(0, 0, 0, 0, None, None)
                 )(
@@ -319,6 +324,7 @@ def make_train(config: Dict):
                     )
                     return (state, rng), None
 
+                # PPO update over epochs/minibatches.
                 ((params, opt_state), rng), _ = jax.lax.scan(
                     _update_epoch,
                     ((params, opt_state), rng),
@@ -327,6 +333,7 @@ def make_train(config: Dict):
                 )
 
                 info_mean = jax.tree_util.tree_map(lambda x: jnp.mean(x, axis=0), info_means)
+                # Log metrics and optionally save checkpoints.
                 metrics = {
                     "train/svo_reward_mean": jnp.mean(rewards_arr),
                     "train/extrinsic_reward_mean": jnp.mean(extrinsic_arr),
