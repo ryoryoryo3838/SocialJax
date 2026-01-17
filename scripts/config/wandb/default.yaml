@@ -1,6 +1,6 @@
 enabled: true
-mode: online
-project: socialjax_components
+mode: offline
+project: socialjax_uv
 entity: null
 group: null
 name: null
