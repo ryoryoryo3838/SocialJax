@@ -14,20 +14,20 @@ uv lock
 uv sync --no-install-project --group dev
 ```
 > --no-install-project
-→ Skips editable installation since this project will be sourced via PYTHONPATH
+→ Skips editable installation since this project is run from source at the repo root
 > --group dev
 → Installs all necessary dependencies for research/learning code
 
 import test
 ```
-PYTHONPATH=. uv run python -c "import socialjax; print(socialjax.__file__)"
+uv run python -c "import socialjax; print(socialjax.__file__)"
 ```
 If you see the path to socialjax/__init__.py in the project directory when running this, it confirms that the sources are being correctly referenced from the uv environment.
 The CUDA-related warnings that appear only indicate CPU fallback and don't affect operation.
 
 run test
 ```
-PYTHONPATH=. uv run python algorithms/IPPO/ippo_cnn_coins.py;
+uv run python algorithms/IPPO/ippo_cnn_coins.py
 ```
 
 If you want to use GPU, please install JAX's GPU-enabled version.
@@ -37,7 +37,7 @@ uv run python -c "import jax; print('backend:', jax.default_backend()); print('d
 ```
 
 ## run
-if you use **pueue**, you must set ```env``` before PYTHONPATH.
+if you use **pueue**, set `cwd` to the repo root so imports resolve correctly.
 ### config
 Hyperparameters are managed by **hydra-core**. Please refer to the directories under algorithms/*/config/.
 New component-based runs use configs under:
@@ -48,29 +48,29 @@ New component-based runs use configs under:
 ### runner
 We provide a reusable training entrypoint under scripts/ backed by shared components for IPPO/MAPPO/SVO.
 ```
-PYTHONPATH=. uv run python scripts/train.py algorithm=ippo env=clean_up
+uv run python scripts/train.py algorithm=ippo env=clean_up
 ```
 Switch independent policy/reward
 ```
-PYTHONPATH=. uv run python scripts/train.py algorithm=ippo env=clean_up independent_policy=true independent_reward=true
+uv run python scripts/train.py algorithm=ippo env=clean_up independent_policy=true independent_reward=true
 ```
 Override config values
 ```
-PYTHONPATH=. uv run python scripts/train.py algorithm.LR=0.0003 env.env_kwargs.num_agents=5
+uv run python scripts/train.py algorithm.LR=0.0003 env.env_kwargs.num_agents=5
 ```
 Disable actual training (config check only)
 ```
-PYTHONPATH=. uv run python scripts/train.py dry_run=true
+uv run python scripts/train.py dry_run=true
 ```
 
 Checkpoint output (component runner)
 ```
-PYTHONPATH=. uv run python scripts/train.py algorithm.CHECKPOINT_DIR=checkpoints/components/ippo algorithm.CHECKPOINT_EVERY=10
+uv run python scripts/train.py algorithm.CHECKPOINT_DIR=checkpoints/components/ippo algorithm.CHECKPOINT_EVERY=10
 ```
 
 Evaluation (GIF rendering)
 ```
-PYTHONPATH=. uv run python scripts/eval.py algorithm=ippo env=clean_up checkpoint_dir=checkpoints/components/ippo
+uv run python scripts/eval.py algorithm=ippo env=clean_up checkpoint_dir=checkpoints/components/ippo
 ```
 
 
