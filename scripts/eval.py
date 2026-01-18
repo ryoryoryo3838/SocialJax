@@ -16,7 +16,7 @@ from omegaconf import DictConfig, OmegaConf
 from PIL import Image
 
 import socialjax
-from components.algorithms.networks import Actor, ActorCritic, Critic, EncoderConfig
+from components.algorithms.networks import Actor, ActorCritic, Critic, build_encoder_config
 from components.training.checkpoint import agent_checkpoint_dir, load_checkpoint
 from components.training.config import build_config
 from components.training.logging import finalize_info_stats, update_info_stats
@@ -34,22 +34,6 @@ warnings.filterwarnings(
     message=r"scatter inputs have incompatible types:.*",
     category=FutureWarning,
 )
-
-
-def _build_encoder_cfg(config: Dict) -> EncoderConfig:
-    return EncoderConfig(
-        activation=config.get("ACTIVATION", "relu"),
-        mlp_sizes=tuple(config.get("MLP_HIDDEN_SIZES", (64, 64))),
-        cnn_channels=tuple(config.get("CNN_CHANNELS", (32, 32, 32))),
-        cnn_kernel_sizes=tuple(config.get("CNN_KERNEL_SIZES", ((5, 5), (3, 3), (3, 3)))),
-        cnn_dense_size=int(config.get("CNN_DENSE_SIZE", 64)),
-        encoder_type=config.get("ENCODER_TYPE", "cnn"),
-        transformer_patch_size=int(config.get("TRANSFORMER_PATCH_SIZE", 4)),
-        transformer_layers=int(config.get("TRANSFORMER_LAYERS", 2)),
-        transformer_heads=int(config.get("TRANSFORMER_HEADS", 4)),
-        transformer_mlp_dim=int(config.get("TRANSFORMER_MLP_DIM", 128)),
-        transformer_embed_dim=int(config.get("TRANSFORMER_EMBED_DIM", 64)),
-    )
 
 
 def _select_action(dist, rng, deterministic: bool):
@@ -120,7 +104,7 @@ def main(cfg: DictConfig) -> None:
     )
     OmegaConf.save(cfg, output_root / "hydra.yaml", resolve=True)
 
-    encoder_cfg = _build_encoder_cfg(config)
+    encoder_cfg = build_encoder_config(config)
     num_agents = env.num_agents
     rng = jax.random.PRNGKey(0)
     parameter_sharing = bool(config.get("PARAMETER_SHARING", True))

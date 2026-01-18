@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence, Tuple
+from typing import Any, Mapping, Sequence, Tuple
 
 import distrax
 import flax.linen as nn
@@ -25,6 +25,24 @@ class EncoderConfig:
     transformer_heads: int = 4
     transformer_mlp_dim: int = 128
     transformer_embed_dim: int = 64
+    decoder_hidden_sizes: Sequence[int] = (64,)
+
+
+def build_encoder_config(config: Mapping[str, Any]) -> EncoderConfig:
+    return EncoderConfig(
+        activation=config.get("ACTIVATION", "relu"),
+        mlp_sizes=tuple(config.get("MLP_HIDDEN_SIZES", (64, 64))),
+        cnn_channels=tuple(config.get("CNN_CHANNELS", (32, 32, 32))),
+        cnn_kernel_sizes=tuple(config.get("CNN_KERNEL_SIZES", ((5, 5), (3, 3), (3, 3)))),
+        cnn_dense_size=int(config.get("CNN_DENSE_SIZE", 64)),
+        encoder_type=config.get("ENCODER_TYPE", "cnn"),
+        transformer_patch_size=int(config.get("TRANSFORMER_PATCH_SIZE", 4)),
+        transformer_layers=int(config.get("TRANSFORMER_LAYERS", 2)),
+        transformer_heads=int(config.get("TRANSFORMER_HEADS", 4)),
+        transformer_mlp_dim=int(config.get("TRANSFORMER_MLP_DIM", 128)),
+        transformer_embed_dim=int(config.get("TRANSFORMER_EMBED_DIM", 64)),
+        decoder_hidden_sizes=tuple(config.get("DECODER_HIDDEN_SIZES", (64,))),
+    )
 
 
 def _is_image_obs(obs_shape: Sequence[int]) -> bool:
@@ -62,7 +80,7 @@ class ActorCritic(nn.Module):
         embedding = encoder(x)
 
         actor_head = MLPDecoder(
-            hidden_sizes=(64,),
+            hidden_sizes=self.encoder_cfg.decoder_hidden_sizes,
             output_size=self.action_dim,
             activation=self.encoder_cfg.activation,
         )
@@ -70,7 +88,7 @@ class ActorCritic(nn.Module):
         pi = distrax.Categorical(logits=logits)
 
         critic_head = ValueDecoder(
-            hidden_sizes=(64,),
+            hidden_sizes=self.encoder_cfg.decoder_hidden_sizes,
             activation=self.encoder_cfg.activation,
         )
         value = critic_head(embedding)
@@ -108,7 +126,7 @@ class Actor(nn.Module):
         embedding = encoder(x)
 
         actor_head = MLPDecoder(
-            hidden_sizes=(64,),
+            hidden_sizes=self.encoder_cfg.decoder_hidden_sizes,
             output_size=self.action_dim,
             activation=self.encoder_cfg.activation,
         )
@@ -146,7 +164,7 @@ class Critic(nn.Module):
         embedding = encoder(x)
 
         critic_head = ValueDecoder(
-            hidden_sizes=(64,),
+            hidden_sizes=self.encoder_cfg.decoder_hidden_sizes,
             activation=self.encoder_cfg.activation,
         )
         return critic_head(embedding)

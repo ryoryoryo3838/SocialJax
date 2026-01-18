@@ -19,6 +19,17 @@ def _set_nested(config: Dict[str, Any], path: str, value: Any) -> None:
 def build_config(cfg: DictConfig) -> Dict[str, Any]:
     config = OmegaConf.to_container(cfg, resolve=True)
     algorithm_cfg = dict(config.get("algorithm", {}))
+    model_cfg = config.get("model") or {}
+    if not isinstance(model_cfg, dict):
+        model_cfg = {}
+    encoder_cfg = dict(model_cfg.get("encoder", {}) or {})
+    decoder_cfg = dict(model_cfg.get("decoder", {}) or {})
+    if encoder_cfg or decoder_cfg:
+        merged = {}
+        merged.update(encoder_cfg)
+        merged.update(decoder_cfg)
+        merged.update(algorithm_cfg)
+        algorithm_cfg = merged
     env_cfg = dict(config.get("env", {}))
 
     algorithm_cfg["ENV_NAME"] = env_cfg.get("env_name")

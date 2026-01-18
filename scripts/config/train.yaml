@@ -1,6 +1,8 @@
 defaults:
   - algorithm: ippo
   - env: clean_up
+  - model@model.encoder: encoder
+  - model@model.decoder: decoder
   - wandb: default
   - _self_
 

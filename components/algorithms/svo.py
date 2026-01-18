@@ -10,7 +10,7 @@ import optax
 import socialjax
 from socialjax.wrappers.baselines import LogWrapper
 
-from components.algorithms.networks import ActorCritic, EncoderConfig
+from components.algorithms.networks import ActorCritic, build_encoder_config
 from components.shaping.svo import svo_deviation_penalty, svo_linear_combination
 from components.training.checkpoint import save_agent_checkpoints
 from components.training.logging import init_wandb, log_metrics
@@ -35,22 +35,6 @@ def _build_target_mask(target_agents, num_agents):
         return None
     mask = jnp.zeros((num_agents,), dtype=bool)
     return mask.at[jnp.array(target_agents)].set(True)
-
-
-def _build_encoder_cfg(config: Dict) -> EncoderConfig:
-    return EncoderConfig(
-        activation=config.get("ACTIVATION", "relu"),
-        mlp_sizes=tuple(config.get("MLP_HIDDEN_SIZES", (64, 64))),
-        cnn_channels=tuple(config.get("CNN_CHANNELS", (32, 32, 32))),
-        cnn_kernel_sizes=tuple(config.get("CNN_KERNEL_SIZES", ((5, 5), (3, 3), (3, 3)))),
-        cnn_dense_size=int(config.get("CNN_DENSE_SIZE", 64)),
-        encoder_type=config.get("ENCODER_TYPE", "cnn"),
-        transformer_patch_size=int(config.get("TRANSFORMER_PATCH_SIZE", 4)),
-        transformer_layers=int(config.get("TRANSFORMER_LAYERS", 2)),
-        transformer_heads=int(config.get("TRANSFORMER_HEADS", 4)),
-        transformer_mlp_dim=int(config.get("TRANSFORMER_MLP_DIM", 128)),
-        transformer_embed_dim=int(config.get("TRANSFORMER_EMBED_DIM", 64)),
-    )
 
 
 def make_train(config: Dict):
@@ -81,7 +65,7 @@ def make_train(config: Dict):
     )
     svo_target_mask = _build_target_mask(config.get("SVO_TARGET_AGENTS"), num_agents)
 
-    encoder_cfg = _build_encoder_cfg(config)
+    encoder_cfg = build_encoder_config(config)
 
     def _shape_reward(reward: jnp.ndarray):
         if svo_mode == "linear":
