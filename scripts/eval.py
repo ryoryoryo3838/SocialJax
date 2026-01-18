@@ -118,9 +118,7 @@ def main(cfg: DictConfig) -> None:
         format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
         mode="w",
     )
-    eval_run_dir = Path(ckpt_dir).parent / "evaluation"
-    eval_run_dir.mkdir(parents=True, exist_ok=True)
-    OmegaConf.save(cfg, eval_run_dir / "hydra.yaml", resolve=True)
+    OmegaConf.save(cfg, output_root / "hydra.yaml", resolve=True)
 
     encoder_cfg = _build_encoder_cfg(config)
     num_agents = env.num_agents
