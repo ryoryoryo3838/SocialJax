@@ -11,9 +11,8 @@ from flax.training.train_state import TrainState
 import socialjax
 from socialjax.wrappers.baselines import LogWrapper
 
-from components.algorithms.independent import broadcast_agent_leaves, stack_agent_params
 from components.algorithms.networks import ActorCritic, build_encoder_config
-from components.algorithms.utils import done_dict_to_array
+from components.algorithms.utils import done_dict_to_array, broadcast_agent_leaves, stack_agent_params
 from components.training.checkpoint import save_agent_checkpoints, save_checkpoint
 from components.training.logging import init_wandb, log_metrics
 from components.training.ppo import PPOBatch, compute_gae, update_ppo, update_ppo_params

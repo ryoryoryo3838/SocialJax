@@ -10,9 +10,8 @@ import optax
 import socialjax
 from socialjax.wrappers.baselines import LogWrapper
 
-from components.algorithms.independent import broadcast_agent_leaves, stack_agent_params
 from components.algorithms.networks import ActorCritic, build_encoder_config
-from components.algorithms.utils import done_dict_to_array
+from components.algorithms.utils import done_dict_to_array, broadcast_agent_leaves, stack_agent_params
 from components.shaping.svo import svo_deviation_penalty, svo_linear_combination
 from components.training.checkpoint import save_agent_checkpoints
 from components.training.logging import init_wandb, log_metrics
