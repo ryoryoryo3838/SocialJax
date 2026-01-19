@@ -1,13 +1,12 @@
 """Evaluate trained policies and optionally render GIFs."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List
 
 from loguru import logger
 import hydra
-import jax
-import jax.numpy as jnp
 import numpy as np
 from omegaconf import DictConfig
 from PIL import Image
@@ -25,6 +24,20 @@ from components.training.logging import finalize_info_stats, update_info_stats
 from components.training.utils import build_world_state, flatten_obs, unflatten_actions
 
 configure_console_logging()
+
+
+def _configure_jax(cfg: DictConfig) -> None:
+    mem_fraction = cfg.get("xla_python_client_mem_fraction")
+    if mem_fraction is not None:
+        os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(mem_fraction)
+
+    global jax
+    global jnp
+    import jax as _jax
+    import jax.numpy as _jnp
+
+    jax = _jax
+    jnp = _jnp
 
 
 def _select_action(dist, rng, deterministic: bool):
@@ -78,6 +91,7 @@ def _load_agent_payloads(
 
 @hydra.main(version_base=None, config_path="config", config_name="eval")
 def main(cfg: DictConfig) -> None:
+    _configure_jax(cfg)
     config = build_config(cfg)
     algorithm = cfg.algorithm.name
     env = socialjax.make(config["ENV_NAME"], **config.get("ENV_KWARGS", {}))

@@ -11,6 +11,6 @@ env_kwargs:
   dirtSpawnProbability: 0.5
   delayStartOfDirtSpawning: 50
 wandb:
-  project: socialjax_components_clean_up
+  project: socialjax_clean_up
   tags:
     - clean_up

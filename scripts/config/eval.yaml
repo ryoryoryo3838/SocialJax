@@ -14,6 +14,7 @@ render: true
 gif_fps: 12
 num_episodes: 1
 deterministic: false
+xla_python_client_mem_fraction: 0.4
 
 hydra:
   run:
