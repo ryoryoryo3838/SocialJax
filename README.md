@@ -75,6 +75,7 @@ uv run scripts/eval.py algorithm=ippo env=clean_up checkpoint_dir=checkpoints/co
 
 ### Agent Color
 Color Palette List
+This order is preserved in self.PLAYER_COLOURS and used for drawing.
 | Preview | RGB Value | HEX Code | Color Name / Description |
 | :---: | :--- | :--- | :--- |
 | <img src="https://singlecolorimage.com/get/CC2828/50x20" > | `(204, 40, 40)` | `#CC2828` | Vivid Red |
