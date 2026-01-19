@@ -12,7 +12,11 @@ import socialjax
 from socialjax.wrappers.baselines import LogWrapper
 
 from components.algorithms.networks import ActorCritic, build_encoder_config
-from components.algorithms.utils import done_dict_to_array, broadcast_agent_leaves, stack_agent_params
+from components.algorithms.utils import (
+    broadcast_agent_leaves,
+    done_dict_to_array,
+    load_agent_init_params,
+)
 from components.training.checkpoint import save_agent_checkpoints, save_checkpoint
 from components.training.logging import init_wandb, log_metrics
 from components.training.ppo import PPOBatch, compute_gae, update_ppo, update_ppo_params
@@ -60,7 +64,7 @@ def make_train(config: Dict):
             rng, init_rng = jax.random.split(rng)
             init_x = jnp.zeros((1, *(env.observation_space()[0]).shape))
             base_params = network.init(init_rng, init_x)
-            params = stack_agent_params(base_params, num_agents)
+            params = load_agent_init_params(config, num_agents, base_params)
 
             if config.get("ANNEAL_LR", False):
                 def lr_schedule(count):

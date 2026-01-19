@@ -31,6 +31,7 @@ def _load_algorithms():
 
 @hydra.main(version_base=None, config_path="config", config_name="train")
 def main(cfg: DictConfig) -> None:
+    # Reduce GPU usage
     mem_fraction = cfg.get("xla_python_client_mem_fraction")
     if mem_fraction is not None:
         os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(mem_fraction)
