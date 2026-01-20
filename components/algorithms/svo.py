@@ -47,16 +47,17 @@ def make_train(config: Dict):
     num_agents = env.num_agents
     parameter_sharing = False
 
-    num_actors = num_envs
+    #num_actors = num_envs
 
     num_updates = (
         int(config["TOTAL_TIMESTEPS"]) // num_steps // num_envs
     )
     minibatch_size = (
-        num_actors * num_steps // int(config["NUM_MINIBATCHES"])
+        #num_actors * num_steps // int(config["NUM_MINIBATCHES"])
+        num_envs * num_steps // int(config["NUM_MINIBATCHES"])
     )
 
-    svo_mode = config.get("SVO_MODE", "deviation")
+    svo_mode = config.get("SVO_MODE", "linear")
     svo_w = _normalize_svo_param(config.get("SVO_W", 0.5), num_agents, "SVO_W")
     svo_ideal = _normalize_svo_param(
         config.get("SVO_IDEAL_ANGLE_DEGREES", 45), num_agents, "SVO_IDEAL_ANGLE_DEGREES"
