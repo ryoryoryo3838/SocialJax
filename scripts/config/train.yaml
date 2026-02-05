@@ -1,6 +1,6 @@
 defaults:
-  - algorithm: svo
-  - env: clean_up
+  - algorithm: mb_ippo
+  - env: harvest_common_open
   - model@model.encoder: encoder
   - model@model.decoder: decoder
   - wandb: default

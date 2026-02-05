@@ -21,6 +21,11 @@ def configure_console_logging() -> None:
         message=r"scatter inputs have incompatible types:.*",
         category=FutureWarning,
     )
+    import logging
+
+    logging.getLogger("jax._src.xla_bridge").addFilter(
+        lambda record: "Unable to initialize backend 'tpu'" not in record.getMessage()
+    )
 
 
 def add_file_logger(path: str | Path) -> None:

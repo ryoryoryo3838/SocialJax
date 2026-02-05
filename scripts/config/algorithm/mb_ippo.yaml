@@ -1,0 +1,46 @@
+# MB-IPPO Configuration
+
+name: "mb_ippo"
+
+# MB Params
+MODEL_LR: 3e-4
+DREAM_HORIZON: 5
+DREAM_RATIO: 0.5
+MODEL_COEF: 1.0
+
+# PPO Params (Aligned with IPPO/config/ippo_cnn_cleanup.yaml but scaled down for MB memory usage)
+LR: 0.0005
+NUM_ENVS: 32 # Reduced from 64
+NUM_STEPS: 64 # Reduced from 250
+TOTAL_TIMESTEPS: 1000000
+UPDATE_EPOCHS: 1
+NUM_MINIBATCHES: 4
+GAMMA: 0.99
+GAE_LAMBDA: 0.95
+CLIP_EPS: 0.2
+ENT_COEF: 0.01
+VF_COEF: 0.5
+MAX_GRAD_NORM: 0.5
+ACTIVATION: "relu"
+ENV_NAME: "harvest_common_open"
+REW_SHAPING_HORIZON: 2.5e6
+SHAPING_BEGIN: 1e6
+
+ENV_KWARGS:
+  num_agents: 7
+  num_inner_steps: 1000
+  shared_rewards: False
+  cnn: True
+  jit: True
+
+ANNEAL_LR: True
+SEED: 30
+NUM_SEEDS: 1
+TUNE: False
+REWARD: "individual"
+GIF_NUM_FRAMES: 250
+PARAMETER_SHARING: True
+
+# WandB
+WANDB:
+  tags: ["MB_IPPO"]
