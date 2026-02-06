@@ -16,16 +16,17 @@ from components.training.entrypoint import (
 configure_console_logging()
 
 
-_ALGO_NAMES = {"ippo", "mappo", "svo"}
+_ALGO_NAMES = {"ippo", "mappo", "svo", "wm_rnd"}
 
 
 def _load_algorithms():
-    from components.algorithms import ippo, mappo, svo
+    from components.algorithms import ippo, mappo, svo, wm_rnd
 
     return {
         "ippo": ippo.make_train,
         "mappo": mappo.make_train,
         "svo": svo.make_train,
+        "wm_rnd": wm_rnd.make_train,
     }
 
 

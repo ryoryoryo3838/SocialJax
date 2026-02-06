@@ -1,5 +1,5 @@
 defaults:
-  - algorithm: mappo
+  - algorithm: wm_rnd
   - env: clean_up
   - model@model.encoder: encoder
   - model@model.decoder: decoder
