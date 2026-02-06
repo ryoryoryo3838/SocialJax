@@ -17,7 +17,7 @@ class MLPEncoder(nn.Module):
         for size in self.hidden_sizes:
             x = nn.Dense(
                 features=size,
-                kernel_init=orthogonal(np.sqrt(2.0)),
+                kernel_init=nn.initializers.lecun_normal(),
                 bias_init=constant(0.0),
             )(x)
             x = activation(x)
@@ -37,14 +37,14 @@ class CNNEncoder(nn.Module):
             x = nn.Conv(
                 features=features,
                 kernel_size=kernel_size,
-                kernel_init=orthogonal(np.sqrt(2.0)),
+                kernel_init=nn.initializers.lecun_normal(),
                 bias_init=constant(0.0),
             )(x)
             x = activation(x)
         x = x.reshape((x.shape[0], -1))
         x = nn.Dense(
             features=self.dense_size,
-            kernel_init=orthogonal(np.sqrt(2.0)),
+            kernel_init=nn.initializers.lecun_normal(),
             bias_init=constant(0.0),
         )(x)
         x = activation(x)
@@ -69,7 +69,7 @@ class TransformerEncoder(nn.Module):
             features=self.embed_dim,
             kernel_size=(self.patch_size, self.patch_size),
             strides=(self.patch_size, self.patch_size),
-            kernel_init=orthogonal(np.sqrt(2.0)),
+            kernel_init=nn.initializers.lecun_normal(),
             bias_init=constant(0.0),
         )(x)
         x = x.reshape((x.shape[0], -1, self.embed_dim))

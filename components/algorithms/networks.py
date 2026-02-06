@@ -49,7 +49,7 @@ def _is_image_obs(obs_shape: Sequence[int]) -> bool:
     return len(obs_shape) >= 3
 
 
-def _build_encoder(cfg: EncoderConfig, obs_shape: Sequence[int]) -> nn.Module:
+def _build_encoder(cfg: EncoderConfig, obs_shape: Sequence[int], name: str = "encoder") -> nn.Module:
     if _is_image_obs(obs_shape):
         if cfg.encoder_type == "transformer":
             return TransformerEncoder(
@@ -59,16 +59,19 @@ def _build_encoder(cfg: EncoderConfig, obs_shape: Sequence[int]) -> nn.Module:
                 mlp_dim=cfg.transformer_mlp_dim,
                 embed_dim=cfg.transformer_embed_dim,
                 activation=cfg.activation,
+                name=name,
             )
         return CNNEncoder(
             channels=cfg.cnn_channels,
             kernel_sizes=cfg.cnn_kernel_sizes,
             activation=cfg.activation,
             dense_size=cfg.cnn_dense_size,
+            name=name,
         )
     return MLPEncoder(
         hidden_sizes=cfg.mlp_sizes,
         activation=cfg.activation,
+        name=name,
     )
 
 
@@ -78,12 +81,20 @@ class ActorCritic(nn.Module):
 
     @nn.compact
     def __call__(self, x: jnp.ndarray):
-        embedding = _build_encoder(self.encoder_cfg, x.shape[1:])(x)
+        embedding = self.encode(x)
+        return self.act(embedding)
 
+    @nn.compact
+    def encode(self, x: jnp.ndarray):
+        return _build_encoder(self.encoder_cfg, x.shape[1:], name="encoder")(x)
+
+    @nn.compact
+    def act(self, embedding: jnp.ndarray):
         actor_head = MLPDecoder(
             hidden_sizes=self.encoder_cfg.decoder_hidden_sizes,
             output_size=self.action_dim,
             activation=self.encoder_cfg.activation,
+            name="actor_head",
         )
         logits = actor_head(embedding)
         pi = distrax.Categorical(logits=logits)
@@ -91,6 +102,7 @@ class ActorCritic(nn.Module):
         critic_head = ValueDecoder(
             hidden_sizes=self.encoder_cfg.decoder_hidden_sizes,
             activation=self.encoder_cfg.activation,
+            name="critic_head",
         )
         value = critic_head(embedding)
         return pi, value
@@ -102,12 +114,13 @@ class Actor(nn.Module):
 
     @nn.compact
     def __call__(self, x: jnp.ndarray):
-        embedding = _build_encoder(self.encoder_cfg, x.shape[1:])(x)
+        embedding = _build_encoder(self.encoder_cfg, x.shape[1:], name="encoder")(x)
 
         actor_head = MLPDecoder(
             hidden_sizes=self.encoder_cfg.decoder_hidden_sizes,
             output_size=self.action_dim,
             activation=self.encoder_cfg.activation,
+            name="actor_head",
         )
         logits = actor_head(embedding)
         return distrax.Categorical(logits=logits)
@@ -118,10 +131,11 @@ class Critic(nn.Module):
 
     @nn.compact
     def __call__(self, x: jnp.ndarray):
-        embedding = _build_encoder(self.encoder_cfg, x.shape[1:])(x)
+        embedding = _build_encoder(self.encoder_cfg, x.shape[1:], name="encoder")(x)
 
         critic_head = ValueDecoder(
             hidden_sizes=self.encoder_cfg.decoder_hidden_sizes,
             activation=self.encoder_cfg.activation,
+            name="critic_head",
         )
         return critic_head(embedding)

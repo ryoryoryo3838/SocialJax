@@ -48,14 +48,34 @@ def log_metrics(metrics: Dict[str, Any], wandb: Optional[Any]) -> None:
 
     update_step = metrics.get("update_step")
     env_step = metrics.get("env_step")
-    reward = metrics.get("train/reward_mean")
+    reward = metrics.get("train/reward_mean") or metrics.get("train/reward")
+    total_loss = metrics.get("train/total_loss")
+    ppo_loss = metrics.get("train/ppo_loss")
+    val_loss = metrics.get("train/value_loss")
+    ent = metrics.get("train/entropy")
+    imag = metrics.get("train/imag_loss")
+    intr = metrics.get("train/intrinsic")
+
     parts = []
     if update_step is not None:
         parts.append(f"update={int(update_step)}")
     if env_step is not None:
         parts.append(f"env_step={int(env_step)}")
     if reward is not None:
-        parts.append(f"reward_mean={float(reward):.4f}")
+        parts.append(f"reward={float(reward):.4f}")
+    if total_loss is not None:
+        parts.append(f"loss={float(total_loss):.4f}")
+    if ppo_loss is not None:
+        parts.append(f"ppo={float(ppo_loss):.4f}")
+    if val_loss is not None:
+        parts.append(f"val={float(val_loss):.4f}")
+    if ent is not None:
+        parts.append(f"ent={float(ent):.4f}")
+    if imag is not None:
+        parts.append(f"imag={float(imag):.4f}")
+    if intr is not None:
+        parts.append(f"intr={float(intr):.4f}")
+
     if not parts:
         return
     logger.info(" | ".join(parts))
