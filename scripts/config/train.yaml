@@ -1,6 +1,6 @@
 defaults:
-  - algorithm: svo
-  - env: clean_up
+  - algorithm: mappo
+  - env: harvest_common_open
   - model@model.encoder: encoder
   - model@model.decoder: decoder
   - wandb: default
@@ -8,7 +8,7 @@ defaults:
 
 seed: 0
 dry_run: false
-xla_python_client_mem_fraction: 0.5
+xla_python_client_mem_fraction: 0.9
 
 
 hydra:
