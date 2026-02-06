@@ -1,6 +1,6 @@
 defaults:
   - algorithm: mappo
-  - env: harvest_common_open
+  - env: clean_up
   - model@model.encoder: encoder
   - model@model.decoder: decoder
   - wandb: default

@@ -1,6 +1,6 @@
 defaults:
-  - algorithm: ippo
-  - env: clean_up
+  - algorithm: mappo
+  - env: harvest_common_open
   - model@model.encoder: encoder
   - model@model.decoder: decoder
   - _self_
