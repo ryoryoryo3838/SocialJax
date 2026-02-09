@@ -14,7 +14,8 @@ from components.algorithms.networks import EncoderConfig, _build_encoder
 
 class RNDNetwork(nn.Module):
     encoder_cfg: EncoderConfig
-    output_dim: int = 64
+    output_dim: int = 288 # Updated default to match reference
+    hidden_dim: int = 256
 
     @nn.compact
     def __call__(self, obs: jnp.ndarray) -> jnp.ndarray:
@@ -27,8 +28,14 @@ class RNDNetwork(nn.Module):
         )(embedding)
         x = nn.relu(x)
         x = nn.Dense(
+            features=self.hidden_dim, # Added hidden layer to match reference
+            kernel_init=nn.initializers.orthogonal(2**0.5), # Orthogonal init
+            bias_init=constant(0.0),
+        )(x)
+        x = nn.relu(x)
+        x = nn.Dense(
             features=self.output_dim,
-            kernel_init=nn.initializers.lecun_normal(),
+            kernel_init=nn.initializers.orthogonal(2**0.5), # Orthogonal init
             bias_init=constant(0.0),
         )(x)
         return x
@@ -58,12 +65,13 @@ class WorldModel(nn.Module):
     @nn.compact
     def dynamics(self, embedding: jnp.ndarray, actions: Union[jnp.ndarray, jnp.ndarray]) -> Tuple[jnp.ndarray, jnp.ndarray]:
         # Determine if actions are discrete indices or soft vectors
+        # actions shape: [B, N] (joint) or [B, 1] (self) or [B, N, D] or [B, 1, D]
         if actions.dtype in [jnp.int32, jnp.int64]:
-            action_vectors = jax.nn.one_hot(actions, self.action_dim)  # [B, N, D]
+            action_vectors = jax.nn.one_hot(actions, self.action_dim)  # [B, N or 1, D]
         else:
-            action_vectors = actions # Assumed [B, N, D]
+            action_vectors = actions # Assumed [B, N or 1, D]
 
-        action_flat = action_vectors.reshape((action_vectors.shape[0], -1))  # [B, N * D]
+        action_flat = action_vectors.reshape((action_vectors.shape[0], -1))  # [B, (N or 1) * D]
         
         # Combine state and action
         combined = jnp.concatenate([embedding, action_flat], axis=-1)

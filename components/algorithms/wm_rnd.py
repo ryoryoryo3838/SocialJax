@@ -33,7 +33,7 @@ def make_train(config: Dict):
     
     # Independent policies: distinct parameters per agent
     num_updates = int(config["TOTAL_TIMESTEPS"]) // num_steps // num_envs
-    minibatch_size = num_envs * num_steps // int(config["NUM_MINIBATCHES"])
+    minibatch_size = num_envs * num_steps // int(config["NUM_MINIBATCHES"]) 
 
     encoder_cfg = build_encoder_config(config)
     
@@ -41,6 +41,11 @@ def make_train(config: Dict):
     intrinsic_coef = float(config.get("INTRINSIC_COEF", 0.1))
     imag_steps = int(config.get("IMAGINATION_STEPS", 32))
     imag_coef = float(config.get("IMAGINATION_COEF", 0.1))
+    
+    # New Hyperparameters
+    rnd_shared = config.get("RND_SHARED", True)
+    wm_joint_action = config.get("WM_JOINT_ACTION", True)
+    symmetry_ratio = float(config.get("SYMMETRY_RATIO", 1.0))
 
     def train(rng):
         wandb = init_wandb(config)
@@ -80,14 +85,30 @@ def make_train(config: Dict):
         # But for computational feasibility in this prototype, a shared "Environment Model" is common.
         # Let's use SHARED RND/WM for now.
         
-        rnd_dim = 64
-        rnd_target = RNDNetwork(encoder_cfg, output_dim=rnd_dim)
-        rnd_predictor = RNDNetwork(encoder_cfg, output_dim=rnd_dim)
+        # RND parameters from reference
+        rnd_feature_dim = int(config.get("RND_FEATURE_DIM", 288))
+        rnd_hidden_dim = int(config.get("RND_HIDDEN_DIM", 256))
+        
+        rnd_target = RNDNetwork(encoder_cfg, output_dim=rnd_feature_dim, hidden_dim=rnd_hidden_dim)
+        rnd_predictor = RNDNetwork(encoder_cfg, output_dim=rnd_feature_dim, hidden_dim=rnd_hidden_dim)
         rng, rt_rng, rp_rng = jax.random.split(rng, 3)
-        target_params = jax.lax.stop_gradient(rnd_target.init(rt_rng, init_x))
-        pred_params = rnd_predictor.init(rp_rng, init_x)
+        
+        # Initialize RND (Shared or Independent)
+        if rnd_shared:
+            target_params = jax.lax.stop_gradient(rnd_target.init(rt_rng, init_x))
+            base_pred_params = rnd_predictor.init(rp_rng, init_x)
+            pred_params = base_pred_params
+        else:
+            # Independent RND per agent
+            v_init_rt = jax.vmap(rnd_target.init, in_axes=(0, None))
+            v_init_rp = jax.vmap(rnd_predictor.init, in_axes=(0, None))
+            target_params = jax.lax.stop_gradient(v_init_rt(jax.random.split(rt_rng, num_agents), init_x))
+            pred_params = v_init_rp(jax.random.split(rp_rng, num_agents), init_x)
+
         pred_tx = optax.adam(float(config.get("RND_LR", 1e-4)))
         pred_opt_state = pred_tx.init(pred_params)
+        if not rnd_shared:
+            pred_opt_state = broadcast_agent_leaves(pred_opt_state, num_agents)
 
         # 3. World Model (Shared)
         wm = WorldModel(encoder_cfg, num_agents=num_agents, action_dim=env.action_space().n)
@@ -130,14 +151,23 @@ def make_train(config: Dict):
             step_keys = jax.random.split(step_rng, num_envs)
             obs, env_state, reward, done, info = jax.vmap(env.step, in_axes=(0, 0, 0))(step_keys, env_state, env_actions)
             
-            # Intrinsic Reward (Computed centrally for now using shared RND)
-            # We calculate novelty per agent view
+            # Intrinsic Reward
             next_obs_agents = jnp.swapaxes(obs, 0, 1) # [N, E, ...]
-            t_feat = jax.vmap(rnd_target.apply, in_axes=(None, 0))(target_params, next_obs_agents)
-            p_feat = jax.vmap(rnd_predictor.apply, in_axes=(None, 0))(pred_params, next_obs_agents)
-            int_rew = jnp.mean(jnp.square(t_feat - p_feat), axis=-1) # [N, E]
             
-            combined_rew = reward.T + intrinsic_coef * int_rew
+            if rnd_shared:
+                t_feat = jax.vmap(rnd_target.apply, in_axes=(None, 0))(target_params, next_obs_agents)
+                p_feat = jax.vmap(rnd_predictor.apply, in_axes=(None, 0))(pred_params, next_obs_agents)
+            else:
+                # Apply each agent's RND to its own observation
+                t_feat = jax.vmap(rnd_target.apply, in_axes=(0, 0))(target_params, next_obs_agents)
+                p_feat = jax.vmap(rnd_predictor.apply, in_axes=(0, 0))(pred_params, next_obs_agents)
+            
+            # Intrinsic Reward (Raw prediction error)
+            # We will normalize this later in the update loop (Max-Min normalization per batch)
+            # Here we just compute the raw squared error mean.
+            int_rew = jnp.mean(jnp.square(t_feat - p_feat), axis=-1) # [N]
+            
+            combined_rew = reward.T # Add intrinsic later after normalization
             
             transition = (
                 obs_agents,
@@ -164,83 +194,54 @@ def make_train(config: Dict):
             obs_arr, actions_arr, logp_arr, values_arr, rewards_arr, ext_arr, dones_arr, int_arr = traj
             # shapes are [T, N, E, ...] generally
             
-            # 1. Update RND (Shared) using all agents' experiences
+            # 1. Update RND
             T, N, E = obs_arr.shape[:3]
-            flat_obs = obs_arr.reshape((-1, *obs_arr.shape[3:])) # [T*N*E, ...]
-            def rnd_loss(p, o):
-                return jnp.mean(jnp.square(jax.lax.stop_gradient(rnd_target.apply(target_params, o)) - rnd_predictor.apply(p, o)))
             
-            rnd_grad_fn = jax.value_and_grad(rnd_loss)
-            _, rnd_grads = rnd_grad_fn(pred_params, flat_obs)
-            updates, pred_opt_state = pred_tx.update(rnd_grads, pred_opt_state, pred_params)
-            pred_params = optax.apply_updates(pred_params, updates)
+            if rnd_shared:
+                flat_obs = obs_arr.reshape((-1, *obs_arr.shape[3:])) # [T*N*E, ...]
+                def rnd_loss(p, o):
+                    return jnp.mean(jnp.square(jax.lax.stop_gradient(rnd_target.apply(target_params, o)) - rnd_predictor.apply(p, o)))
+                
+                rnd_grad_fn = jax.value_and_grad(rnd_loss)
+                _, rnd_grads = rnd_grad_fn(pred_params, flat_obs)
+                updates, pred_opt_state = pred_tx.update(rnd_grads, pred_opt_state, pred_params)
+                pred_params = optax.apply_updates(pred_params, updates)
+            else:
+                # Independent updates per agent
+                # Shape: [N, T*E, ...]
+                agent_obs = jnp.swapaxes(obs_arr, 0, 1).reshape((N, -1, *obs_arr.shape[3:]))
+                
+                def rnd_loss_indiv(p, o, t):
+                    return jnp.mean(jnp.square(jax.lax.stop_gradient(rnd_target.apply(t, o)) - rnd_predictor.apply(p, o)))
+                
+                def update_rnd_agent(p, o, t, os):
+                    grads = jax.grad(rnd_loss_indiv)(p, o, t)
+                    updates, new_os = pred_tx.update(grads, os, p)
+                    return optax.apply_updates(p, updates), new_os
+                
+                pred_params, pred_opt_state = jax.vmap(update_rnd_agent)(pred_params, agent_obs, target_params, pred_opt_state)
 
-            # 2. Update World Model (Shared)
-            # Train on Agent 0's perspective + Other's actions? Or all agents?
-            # To be robust, let's train on all agents (treating them as independent samples of "State -> Action -> Next State").
-            # But WM input is [S, Actions].
-            # For "CleanUp", the state is local view? 
-            # If IPPO, we only see local view.
-            # We assume S_local -> Actions -> S_local_next.
-            # We need joint actions for every agent? 
-            # In CleanUp, we can see others?
-            # Let's simplify: We assume "Others" are part of the environment dynamics.
-            # BUT the user wants "Project Self".
-            # So the WM MUST take "Joint Actions" to predict outcome.
-            # Local View + Joint Actions -> Next Local View.
-            # For data: We have Obs [N, E], Actions [N, E].
-            # We need to constructing inputs [S_i, A_all].
-            # "Joint actions" from perspective of agent i: [a_i, a_others...].
-            # Since strict ordering doesn't exist in local view without ids, we just assume fixed ordering [0..N].
-            
-            # Inputs:
-            # S: [T*E*N, ...] (Everyone's observations)
-            # A: [T*E, N] -> broadcast to [T*E*N, N]? 
-            # We need [T*E*N, N] where for each agent i, we provide the full joint action vector of that step.
-            
-            joint_actions = jnp.transpose(actions_arr, (0, 2, 1)) # [T, E, N]
-            joint_actions_repeated = jnp.repeat(joint_actions, N, axis=1) # [T, E*N, N]
-            joint_actions_flat = joint_actions_repeated.reshape((-1, num_agents)) # [T*E*N, N]
+            # 2. Update World Model
+            # joint_actions: [T, E, N]
+            if wm_joint_action:
+                joint_actions = jnp.transpose(actions_arr, (0, 2, 1)) # [T, E, N]
+                wm_actions_input = jnp.repeat(joint_actions, N, axis=1).reshape((-1, num_agents)) # [T*E*N, N]
+            else:
+                # Use only own action
+                # actions_arr: [T, N, E] -> swap -> [T, E, N] -> reshape to [T*E*N, 1]
+                wm_actions_input = jnp.swapaxes(actions_arr, 1, 2).reshape((-1, 1)) # [T*E*N, 1]
             
             obs_flat = obs_arr.reshape((-1, *obs_arr.shape[3:]))
             next_obs_flat = jnp.concatenate([obs_arr[1:], jnp.swapaxes(last_obs, 0, 1)[None, ...]], axis=0).reshape((-1, *obs_arr.shape[3:]))
-            ext_rew_flat = ext_arr.reshape((-1, 1)) # We predict own reward? Or joint?
-            # Let's predict own reward [T*E*N, 1]? 
-            # WM output for reward is [N] usually. 
-            # Let's just predict [1] (Self Reward) for shared model simplicity, or [N] if we want full prediction.
-            # The WM definition returns [B, N]. Let's say it predicts [Self, Others...] or just [N] fixed slots.
-            # We'll train it to predict the rewards of the N agents given the state (which might be just i's view).
-            
-            # Target Reward: [T, E, N] -> [T*E*N, N] ?
-            # Not easy to align "Agent i's view" with "Agent j's reward" without global knowledge.
-            # Simplified WM: Predict ONLY my own reward and my own next latent. 
-            # We rely on "Symmetry" in the *rollout policy*, not necessarily in the WM predicting everyone's state.
-            # But we need everyone's reward to optimize "Cooperation".
-            # "If I do A and they do A, we ALL get Reward R".
-            # So WM should predict R_total or R_self? 
-            # User: "prevent free riding". I need to see that cleaning helps ME.
-            # But only if others also gather?
-            # Let's predict [N] rewards from the perspective of the agent.
-            
-            # Align rewards: For obs i (agent i), the target rewards are the rewards of [0..N] at that step.
-            ext_rew_target = jnp.transpose(ext_arr, (0, 2, 1)).reshape((-1, num_agents)) # [T*E, N] repeated?
-            # No, for Obs of Agent i, the rewards are [r_0, r_1... r_N]
-            # We repeat the joint reward vector N times.
             ext_rew_target_repeated = jnp.repeat(jnp.transpose(ext_arr, (0, 2, 1)), N, axis=1).reshape((-1, num_agents))
 
             def wm_loss_fn(p, s, a, s_next, r_target):
-
-                # Use module logic.
-                pass 
-                # This is tricky with Flax functional style.
-                # We need to call apply with p["wm"].
                 latent_pred, r_pred = wm.apply(p["wm"], s, a) 
                 latent_target = jax.lax.stop_gradient(le.apply(p["le"], s_next))
-                
                 return jnp.mean(jnp.square(latent_target - latent_pred)) + jnp.mean(jnp.square(r_target - r_pred))
 
             wm_grad_fn = jax.value_and_grad(wm_loss_fn)
-            _, wm_grads = wm_grad_fn(wm_le_params, obs_flat, joint_actions_flat, next_obs_flat, ext_rew_target_repeated)
+            _, wm_grads = wm_grad_fn(wm_le_params, obs_flat, wm_actions_input, next_obs_flat, ext_rew_target_repeated)
             wm_updates, wm_le_opt_state = wm_le_tx.update(wm_grads, wm_le_opt_state, wm_le_params)
             wm_le_params = optax.apply_updates(wm_le_params, wm_updates)
 
@@ -259,11 +260,37 @@ def make_train(config: Dict):
             last_obs_agents = jnp.swapaxes(last_obs, 0, 1)
             _, last_val_agents = jax.vmap(network.apply, in_axes=(0, 0))(params, last_obs_agents) # [N, E]
 
+            # 4. Normalize Intrinsic Rewards (Min-Max)
+            # Reference: expl_r = (expl_r - expl_r.min()) / (expl_r.max() - expl_r.min() + 1e-11)
+            
+            # int_arr is [T, N].
+            # We want to normalize over the time dimension (and possibly env dimension if we had it separately, but here T covers the batch)
+            # Actually, the reference flattens everything. Here we process per-agent.
+            
+            def normalize_int_batch(i_arr):
+                # i_arr: [T] for one agent
+                # stop_gradient is important! The normalization statistics shouldn't backprop?
+                # The reference uses .detach() on expl_r BEFORE normalization.
+                i_v = jax.lax.stop_gradient(i_arr)
+                min_val = jnp.min(i_v)
+                max_val = jnp.max(i_v)
+                return (i_v - min_val) / (max_val - min_val + 1e-11)
+            
+            # i_arr is [T, N]. Swap to [N, T].
+            int_agents = jnp.swapaxes(int_arr, 1, 0) # [N, T]
+            norm_int_agents = jax.vmap(normalize_int_batch)(int_agents) # [N, T]
+            
+            # Reconstruct Rewards
+            ext_agents = jnp.swapaxes(ext_arr, 1, 0)
+            # Final rewards for PPO: External + Normalized Intrinsic * Coef
+            # intrinsic_coef here acts as rnd_k_expl
+            combined_agents = ext_agents + intrinsic_coef * norm_int_agents
+
             # GAE per agent
             adv_list, ret_list = [], []
             for i in range(num_agents):
                 adv, ret = compute_gae(
-                    rew_agents[i], val_agents[i], don_agents[i], last_val_agents[i], 
+                    combined_agents[i], val_agents[i], don_agents[i], last_val_agents[i], 
                     float(config["GAMMA"]), float(config["GAE_LAMBDA"])
                 )
                 adv_list.append(adv)
@@ -342,29 +369,40 @@ def make_train(config: Dict):
 
                                 
                                 # World Model Prediction
-                                # Use shared WM params (fixed, stop_gradient)
-                                wm_p = jax.lax.stop_gradient(wm_le_params["wm"])
-                                next_latent, rewards = wm.apply(wm_p, s_emb, soft_actions, method=wm.dynamics) 
-                                # rewards: [B, N]. We care about SELF reward (agent i).
-                                # But in symmetry, we are interchangeable? 
-                                # Let's strictly maximize Agent i's reward (index 0 if we mapped self to 0? 
-                                # No, WM output corresponds to fixed agent slots 0..N.
-                                # If I assume I am Agent k, I should maximize index k?
-                                # But I am simulating "Everyone is Me".
-                                # A symmetric policy should yield high rewards for EVERYONE.
-                                # So maximizing mean(rewards) is a safe cooperative proxy.
+                                # If WM expects joint actions [B, N], we provide replication of self
+                                if wm_joint_action:
+                                    wm_actions = soft_actions # [B, N, D]
+                                else:
+                                    # WM expects single action [B, 1, D]
+                                    wm_actions = soft_actions[:, 0:1, :] # Just the first one
                                 
-                                step_rew = jnp.mean(rewards) 
+                                next_latent, rewards = wm.apply(wm_p, s_emb, wm_actions, method=wm.dynamics) 
+                                # rewards: [B, N].
+                                
+                                # Symmetry Ratio Decay logic:
+                                # Mix (Self Reward) and (Mean Reward)
+                                # rewards[:, agent_idx] is self reward.
+                                # But we are in a vmap over agent_idx.
+                                r_self = rewards[:, agent_idx]
+                                r_mean = jnp.mean(rewards, axis=1)
+                                step_rew = (1.0 - symmetry_ratio) * r_self + symmetry_ratio * r_mean
+                                
                                 return (next_latent, next_key, cum_rew + step_rew), None
 
                             # Init Embedding
                             # Use World Model's encoder to get initial latent state
                             init_emb = wm.apply(wm_p, imag_s, method=wm.encode)
+                            # cum_rew should track rewards for the batch of imaginary rollouts. 
+                            # imag_s shape is [16, ...] (B_img=16). step_rew is [B_img].
+                            # So initial carry must be [B_img] zeros, not scalar 0.0.
+                            init_cum_rew = jnp.zeros(imag_s.shape[0])
+
                             (final_emb, final_key, total_imag_rew), _ = jax.lax.scan(
-                                imag_rollout, (init_emb, grad_rng, 0.0), None, length=imag_steps
+                                imag_rollout, (init_emb, grad_rng, init_cum_rew), None, length=imag_steps
                             )
                             
-                            l_imag = -total_imag_rew
+                            # total_imag_rew is [B_img], we mean it for loss
+                            l_imag = -jnp.mean(total_imag_rew)
                             metrics = {
                                 "train/ppo_loss": ppo_loss,
                                 "train/value_loss": val_loss,
@@ -407,7 +445,9 @@ def make_train(config: Dict):
                 "env_step": env_steps_total,
                 **avg_epoch_metrics,
             }
+            do_save = (update_step + 1) % ckpt_every == 0 if (ckpt_dir and ckpt_every > 0) else False
             jax.debug.callback(_log_callback, metrics)
+            jax.debug.callback(_save_callback, update_step + 1, params, do_save)
             return (params, opt_state, pred_params, pred_opt_state, wm_le_params, wm_le_opt_state, env_state, last_obs, rng, update_step + 1), metrics
 
         init_carry = (params, opt_state, pred_params, pred_opt_state, wm_le_params, wm_le_opt_state, env_state, obs, rng, 0)

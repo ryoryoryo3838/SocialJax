@@ -1,5 +1,5 @@
 defaults:
-  - algorithm: mappo
+  - algorithm: wm_rnd
   - env: harvest_common_open
   - model@model.encoder: encoder
   - model@model.decoder: decoder
